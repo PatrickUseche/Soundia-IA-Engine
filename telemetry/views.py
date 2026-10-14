@@ -2,21 +2,31 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .services import AiMixService
+from .dtos import MidiEventDto
 
 # Create your views here.
 
 @csrf_exempt
 def calculate_mix(request):
     if request.method == 'POST':
-        # Deserializar el DTO enviado por Spring Boot
         data = json.loads(request.body)
-        control_id = data.get('controlId')
-        value = data.get('value')
         
-        # Logica futura del modelo de Inteligencia Artificial
-        ai_decision = AiMixService.calculate_transition(control_id, value)
+        try:
+            # Mapeo estructural (Casting del JSON al DTO)
+            dto_in = MidiEventDto(
+                control_id=int(data.get('controlId')),
+                value=int(data.get('value'))
+            )
+            
+            # Inyeccion pura al servicio
+            dto_out = AiMixService.calculate_transition(dto_in)
+            
+            print(f"[Django AI] Evento MIDI procesado: Control {dto_in.control_id}, Valor {dto_in.value}")
+            
+            # Serializar DTO de salida a JSON internamente (__dict__).
+            return JsonResponse(dto_out.__dict__)
+        except (TypeError, ValueError) as e:
+            # Atrapa errores de casting (ej. enviaron letras) o validacion de negocio (ej. valor 150)
+            return JsonResponse({"error": str(e)}, status=400)
         
-        print(f"[Django AI] Evento MIDI recibido: Control {control_id}, Valor {value}")
-        return JsonResponse({"status": "success", "action": ai_decision})
-    
     return JsonResponse({"error": "Metodo no permitido"}, status=405)
