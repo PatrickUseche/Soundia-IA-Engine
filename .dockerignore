@@ -1,0 +1,16 @@
+# Lo que no debe entrar al contexto de construccion de la imagen
+venv/
+__pycache__/
+*.pyc
+.git/
+.github/
+.vscode/
+
+# Datos y secretos locales: nunca deben acabar dentro de una imagen
+db.sqlite3
+media/
+.env
+.env.*
+!.env.example
+
+*.md
