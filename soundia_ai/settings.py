@@ -99,7 +99,8 @@ WSGI_APPLICATION = 'soundia_ai.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # En un contenedor la base debe vivir en un volumen: SQLITE_PATH permite moverla.
+        'NAME': Path(os.environ.get('SQLITE_PATH', BASE_DIR / 'db.sqlite3')),
     }
 }
 
