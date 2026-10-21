@@ -25,6 +25,9 @@ def parse_midi_event(raw_body: bytes) -> MidiEventDto:
     except JSONDecodeError:
         raise PayloadInvalidoError("Sintaxis JSON invalida")
 
+    if not isinstance(data, dict):
+        raise PayloadInvalidoError("El cuerpo JSON debe ser un objeto")
+
     control_id = data.get('controlId', data.get('control_id'))
     value = data.get('value')
 

@@ -56,3 +56,8 @@ class CalculateMixViewTests(TestCase):
         response = self.client.get(URL)
 
         self.assertEqual(response.status_code, 405)
+
+    def test_json_que_no_es_objeto_devuelve_400(self):
+        response = self.post([1, 2, 3])
+
+        self.assertEqual(response.status_code, 400)
