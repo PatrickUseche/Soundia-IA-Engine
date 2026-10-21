@@ -11,7 +11,7 @@ Al terminarla se marca `[x]` en ese mismo commit.
 - [ ] refactor(settings): SECRET_KEY, DEBUG y ALLOWED_HOSTS desde variables de entorno [1.4]
 - [ ] chore: crear requirements.txt con las dependencias del proyecto [1.5]
 - [ ] test(telemetry): pruebas de la vista, el servicio y las estrategias [1.6]
-- [ ] refactor(views): convertir la vista a Django REST Framework o dejar validación centralizada [1.7]
+- [x] refactor(views): centralizar la validación de la petición en parse_midi_event [1.7]
 
 ## Fase 2 — Análisis de audio
 
