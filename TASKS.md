@@ -5,13 +5,13 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 ## Fase 1 — Estabilizar lo existente
 
-- [ ] fix(services): eliminar el doble cálculo de la estrategia en calculate_transition [1.1]
-- [ ] fix(services): aceptar el valor MIDI 0 como válido (rango 0-127) [1.2]
-- [ ] fix(strategies): corregir el formato del porcentaje (:.1f) [1.3]
-- [ ] refactor(settings): SECRET_KEY, DEBUG y ALLOWED_HOSTS desde variables de entorno [1.4]
-- [ ] chore: crear requirements.txt con las dependencias del proyecto [1.5]
-- [ ] test(telemetry): pruebas de la vista, el servicio y las estrategias [1.6]
-- [ ] refactor(views): convertir la vista a Django REST Framework o dejar validación centralizada [1.7]
+- [x] fix(services): eliminar el doble cálculo de la estrategia en calculate_transition [1.1]
+- [x] fix(services): aceptar el valor MIDI 0 como válido (rango 0-127) [1.2]
+- [x] fix(strategies): corregir el formato del porcentaje (:.1f) [1.3]
+- [x] refactor(settings): SECRET_KEY, DEBUG y ALLOWED_HOSTS desde variables de entorno [1.4]
+- [x] chore: crear requirements.txt con las dependencias del proyecto [1.5]
+- [x] test(telemetry): pruebas de la vista, el servicio y las estrategias [1.6]
+- [x] refactor(views): centralizar la validación de la petición en parse_midi_event [1.7]
 
 ## Fase 2 — Análisis de audio
 

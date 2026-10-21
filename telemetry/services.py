@@ -11,7 +11,7 @@ class AiMixService:
     
     @classmethod
     def calculate_transition(cls, event: MidiEventDto) -> AiDecisionDto:
-        if not (0 < event.value <= 127):
+        if not (0 <= event.value <= 127):
             raise ValueError(f"Valor MIDI {event.value} fuera del protocolo estandar (0-127).")
         
         # Inferencia: El motor matematico (Strategy) calcula la decision.
@@ -24,4 +24,4 @@ class AiMixService:
             action_taken = decision_dto.action
         )
         
-        return cls._strategy.calculate(event)
+        return decision_dto
