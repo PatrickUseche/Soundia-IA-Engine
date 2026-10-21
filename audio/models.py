@@ -25,7 +25,8 @@ class Track(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-created_at']
+        # El id desempata pistas guardadas en el mismo instante, para que el orden sea determinista.
+        ordering = ['-created_at', '-id']
 
     def __str__(self):
         return f"{self.title} ({self.bpm:.0f} BPM, {self.camelot})"
