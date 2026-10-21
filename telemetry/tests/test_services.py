@@ -56,3 +56,13 @@ class AiMixServiceTests(TestCase):
         decision = AiMixService.calculate_transition(MidiEventDto(control_id=14, value=100))
 
         self.assertEqual(decision.action, AiDecisionLog.objects.get().action_taken)
+
+    def test_valor_cero_es_valido(self):
+        decision = AiMixService.calculate_transition(MidiEventDto(control_id=14, value=0))
+
+        self.assertEqual(decision.status, "success")
+
+    def test_valor_127_es_valido(self):
+        decision = AiMixService.calculate_transition(MidiEventDto(control_id=14, value=127))
+
+        self.assertEqual(decision.status, "success")

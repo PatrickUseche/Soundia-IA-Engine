@@ -6,7 +6,7 @@ Al terminarla se marca `[x]` en ese mismo commit.
 ## Fase 1 — Estabilizar lo existente
 
 - [x] fix(services): eliminar el doble cálculo de la estrategia en calculate_transition [1.1]
-- [ ] fix(services): aceptar el valor MIDI 0 como válido (rango 0-127) [1.2]
+- [x] fix(services): aceptar el valor MIDI 0 como válido (rango 0-127) [1.2]
 - [x] fix(strategies): corregir el formato del porcentaje (:.1f) [1.3]
 - [ ] refactor(settings): SECRET_KEY, DEBUG y ALLOWED_HOSTS desde variables de entorno [1.4]
 - [ ] chore: crear requirements.txt con las dependencias del proyecto [1.5]
