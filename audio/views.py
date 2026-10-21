@@ -1,5 +1,7 @@
+import os
+
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import FileResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .analysis import AudioTooShortError, SilentAudioError
@@ -8,6 +10,14 @@ from .services import UnsupportedAudioError, analyze_file
 
 # Maximo de pistas que devuelve el listado.
 LIST_LIMIT = 50
+
+# Tipos MIME de los formatos soportados; se fijan a mano para no depender del registro del sistema operativo.
+AUDIO_CONTENT_TYPES = {
+    '.wav': 'audio/wav',
+    '.mp3': 'audio/mpeg',
+    '.flac': 'audio/flac',
+    '.ogg': 'audio/ogg',
+}
 
 
 def track_to_dict(track: Track) -> dict:
@@ -20,6 +30,7 @@ def track_to_dict(track: Track) -> dict:
         'camelot': track.camelot,
         'energy': track.energy,
         'cuePoints': track.cue_points,
+        'hasAudio': bool(track.audio_file),
         'createdAt': track.created_at.isoformat(),
     }
 
@@ -54,6 +65,9 @@ def analyze_track(request):
         energy=analysis.energy,
         cue_points=analysis.cue_points,
     )
+    # El analisis ya leyo el archivo hasta el final: se rebobina para guardarlo completo.
+    upload.seek(0)
+    track.audio_file.save(upload.name, upload, save=True)
     return JsonResponse(track_to_dict(track), status=201)
 
 
@@ -72,3 +86,24 @@ def track_detail(request, pk):
     except Track.DoesNotExist:
         return JsonResponse({'error': 'Pista no encontrada'}, status=404)
     return JsonResponse(track_to_dict(track))
+
+
+def track_file(request, pk):
+    """GET: el audio original de la pista, para reproducirlo en los decks."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    try:
+        track = Track.objects.get(pk=pk)
+    except Track.DoesNotExist:
+        return JsonResponse({'error': 'Pista no encontrada'}, status=404)
+    if not track.audio_file:
+        return JsonResponse({'error': 'La pista no tiene audio guardado.'}, status=404)
+
+    try:
+        handle = track.audio_file.open('rb')
+    except FileNotFoundError:
+        # El registro existe pero el archivo ya no esta en el disco.
+        return JsonResponse({'error': 'El archivo de audio de la pista ya no esta disponible.'}, status=404)
+
+    extension = os.path.splitext(track.audio_file.name)[1].lower()
+    return FileResponse(handle, content_type=AUDIO_CONTENT_TYPES.get(extension, 'application/octet-stream'))

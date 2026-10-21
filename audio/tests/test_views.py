@@ -98,6 +98,30 @@ class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
     def test_get_devuelve_405(self):
         self.assertEqual(self.client.get(ANALYZE).status_code, 405)
 
+    def test_guarda_el_audio_original_para_poder_reproducirlo(self):
+        original = to_wav_bytes(cancion(bpm=124))
+
+        response = self.subir(SimpleUploadedFile('tema.wav', original, content_type='audio/wav'))
+
+        track = Track.objects.get(pk=response.json()['id'])
+        self.assertTrue(track.audio_file)
+        with track.audio_file.open('rb') as archivo:
+            self.assertEqual(archivo.read(), original)
+        self.assertTrue(response.json()['hasAudio'])
+
+    def test_un_audio_que_no_se_pudo_analizar_no_deja_archivos_guardados(self):
+        import os
+        from django.conf import settings
+        carpeta = os.path.join(settings.MEDIA_ROOT, 'tracks')
+        # La carpeta temporal se comparte entre las pruebas de la clase: se compara antes y despues.
+        antes = sorted(os.listdir(carpeta)) if os.path.exists(carpeta) else []
+
+        self.subir(wav(sine(440, 1.0)))
+
+        despues = sorted(os.listdir(carpeta)) if os.path.exists(carpeta) else []
+        self.assertEqual(despues, antes)
+        self.assertEqual(Track.objects.count(), 0)
+
 
 class TrackQueryViewTests(TempMediaMixin, TestCase):
     def crear(self, titulo, **cambios):
@@ -140,3 +164,69 @@ class TrackQueryViewTests(TempMediaMixin, TestCase):
 
     def test_post_en_el_listado_devuelve_405(self):
         self.assertEqual(self.client.post(TRACKS).status_code, 405)
+
+
+class TrackFileViewTests(TempMediaMixin, TestCase):
+    def crear_con_audio(self, contenido=b'RIFFdatos', nombre='tema.wav'):
+        track = Track.objects.create(
+            title=nombre, duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
+        track.audio_file.save(nombre, SimpleUploadedFile(nombre, contenido))
+        return track
+
+    def test_devuelve_el_audio_guardado(self):
+        track = self.crear_con_audio(b'RIFFdatos')
+
+        response = self.client.get(f'{TRACKS}/{track.id}/file')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b''.join(response.streaming_content), b'RIFFdatos')
+
+    def test_el_tipo_de_contenido_depende_de_la_extension(self):
+        casos = {'tema.wav': 'audio/', 'tema.mp3': 'audio/mpeg', 'tema.flac': 'audio/'}
+        for nombre, esperado in casos.items():
+            with self.subTest(nombre=nombre):
+                track = self.crear_con_audio(nombre=nombre)
+
+                response = self.client.get(f'{TRACKS}/{track.id}/file')
+
+                self.assertTrue(response['Content-Type'].startswith(esperado), response['Content-Type'])
+
+    def test_indica_la_longitud_para_poder_mostrar_progreso_de_descarga(self):
+        track = self.crear_con_audio(b'12345')
+
+        response = self.client.get(f'{TRACKS}/{track.id}/file')
+
+        self.assertEqual(response['Content-Length'], '5')
+
+    def test_pista_inexistente_devuelve_404(self):
+        self.assertEqual(self.client.get(f'{TRACKS}/9999/file').status_code, 404)
+
+    def test_pista_sin_audio_devuelve_404_con_mensaje(self):
+        track = Track.objects.create(
+            title='sin audio', duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+
+        response = self.client.get(f'{TRACKS}/{track.id}/file')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn('audio', response.json()['error'].lower())
+
+    def test_si_el_archivo_se_borro_del_disco_devuelve_404(self):
+        track = self.crear_con_audio()
+        track.audio_file.delete(save=False)
+        track.audio_file.name = 'tracks/borrado.wav'
+        track.save()
+
+        self.assertEqual(self.client.get(f'{TRACKS}/{track.id}/file').status_code, 404)
+
+    def test_post_devuelve_405(self):
+        track = self.crear_con_audio()
+
+        self.assertEqual(self.client.post(f'{TRACKS}/{track.id}/file').status_code, 405)
+
+    def test_el_detalle_indica_si_la_pista_tiene_audio(self):
+        con_audio = self.crear_con_audio()
+        sin_audio = Track.objects.create(
+            title='x', duration=1.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+
+        self.assertTrue(self.client.get(f'{TRACKS}/{con_audio.id}').json()['hasAudio'])
+        self.assertFalse(self.client.get(f'{TRACKS}/{sin_audio.id}').json()['hasAudio'])
