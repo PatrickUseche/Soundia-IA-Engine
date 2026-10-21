@@ -3,6 +3,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
 from audio.models import Track
+from audio.tests.media import TempMediaMixin
 from audio.tests.signals import SR, chord, click_track, sine, to_wav_bytes
 
 ANALYZE = '/api/audio/analyze'
@@ -22,7 +23,7 @@ def wav(y, sr=SR, nombre='tema.wav'):
     return SimpleUploadedFile(nombre, to_wav_bytes(y, sr), content_type='audio/wav')
 
 
-class AnalyzeTrackViewTests(TestCase):
+class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
     def subir(self, archivo, **extra):
         return self.client.post(ANALYZE, {'file': archivo, **extra})
 
@@ -98,7 +99,7 @@ class AnalyzeTrackViewTests(TestCase):
         self.assertEqual(self.client.get(ANALYZE).status_code, 405)
 
 
-class TrackQueryViewTests(TestCase):
+class TrackQueryViewTests(TempMediaMixin, TestCase):
     def crear(self, titulo, **cambios):
         datos = dict(title=titulo, duration=200.0, bpm=128.0, key='C major', camelot='8B',
                      energy=0.5, cue_points=[0.0, 30.0])
