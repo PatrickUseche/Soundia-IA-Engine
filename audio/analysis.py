@@ -3,8 +3,12 @@
 Todas las funciones reciben la senal ya cargada (`y`, mono, float) y su frecuencia de muestreo (`sr`),
 asi se pueden probar con senales sinteticas sin leer archivos.
 """
+from dataclasses import dataclass
+
 import librosa
 import numpy as np
+
+from .camelot import camelot_code, key_name
 
 # Un audio mas corto no tiene suficientes pulsos para estimar un tempo fiable.
 MIN_SECONDS = 2.0
@@ -66,3 +70,39 @@ def detect_bpm(y: np.ndarray, sr: int) -> float:
     _, beat_times = librosa.beat.beat_track(
         onset_envelope=onset_envelope, sr=sr, start_bpm=coarse, units='time')
     return fold_bpm(refine_bpm(coarse, beat_times))
+
+
+# Perfiles de Krumhansl-Schmuckler: cuanto "encaja" cada nota en una tonalidad mayor o menor con tonica C.
+_MAJOR_PROFILE = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
+_MINOR_PROFILE = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
+
+
+@dataclass(frozen=True)
+class KeyEstimate:
+    pitch_class: int  # 0 = C ... 11 = B
+    mode: str  # 'major' o 'minor'
+    confidence: float  # correlacion con el perfil ganador, entre 0 y 1
+
+    @property
+    def name(self) -> str:
+        return key_name(self.pitch_class, self.mode)
+
+    @property
+    def camelot(self) -> str:
+        return camelot_code(self.pitch_class, self.mode)
+
+
+def detect_key(y: np.ndarray, sr: int) -> KeyEstimate:
+    """Tonalidad estimada comparando el cromagrama medio con los perfiles de las 24 tonalidades."""
+    validate_signal(y, sr)
+    mean_chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
+    if np.std(mean_chroma) == 0:
+        raise ValueError("No se pudo estimar la tonalidad: el audio no tiene contenido tonal.")
+
+    best = None
+    for pitch_class in range(12):
+        for mode, profile in (('major', _MAJOR_PROFILE), ('minor', _MINOR_PROFILE)):
+            correlation = float(np.corrcoef(mean_chroma, np.roll(profile, pitch_class))[0, 1])
+            if best is None or correlation > best.confidence:
+                best = KeyEstimate(pitch_class, mode, correlation)
+    return KeyEstimate(best.pitch_class, best.mode, min(max(best.confidence, 0.0), 1.0))
