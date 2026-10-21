@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'telemetry', # Microservicio receptor registrado.
+    'audio', # Analisis de audio: BPM, tonalidad, energia y puntos de mezcla.
 ]
 
 MIDDLEWARE = [
