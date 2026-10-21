@@ -15,11 +15,11 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 ## Fase 2 — Análisis de audio
 
-- [ ] feat(audio): modelo Track y migración con BPM, tonalidad, energía y duración [2.1]
-- [ ] feat(audio): servicio de análisis de BPM con librosa [2.2]
-- [ ] feat(audio): detección de tonalidad y conversión a rueda de Camelot [2.3]
-- [ ] feat(audio): cálculo de energía y detección de puntos de mezcla (cues) [2.4]
-- [ ] feat(api): endpoint para analizar un archivo de audio [2.5]
+- [x] feat(audio): modelo Track y migración con BPM, tonalidad, energía y duración [2.1]
+- [x] feat(audio): servicio de análisis de BPM con librosa [2.2]
+- [x] feat(audio): detección de tonalidad y conversión a rueda de Camelot [2.3]
+- [x] feat(audio): cálculo de energía y detección de puntos de mezcla (cues) [2.4]
+- [x] feat(api): endpoint para analizar un archivo de audio [2.5]
 
 ## Fase 3 — Motor de mezcla
 
