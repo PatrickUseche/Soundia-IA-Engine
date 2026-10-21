@@ -23,10 +23,10 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 ## Fase 3 — Motor de mezcla
 
-- [ ] feat(mix): estrategia de compatibilidad armónica y de BPM para elegir la siguiente pista [3.1]
-- [ ] feat(mix): estrategia de transición con curvas de EQ y crossfade [3.2]
-- [ ] feat(mix): ajuste de tempo para beatmatching [3.3]
-- [ ] feat(api): endpoint de siguiente pista y plan de transición [3.4]
+- [x] feat(mix): estrategia de compatibilidad armónica y de BPM para elegir la siguiente pista [3.1]
+- [x] feat(mix): estrategia de transición con curvas de EQ y crossfade [3.2]
+- [x] feat(mix): ajuste de tempo para beatmatching [3.3]
+- [x] feat(api): endpoint de siguiente pista y plan de transición [3.4]
 
 ## Fase 4 — IA real
 

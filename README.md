@@ -42,6 +42,27 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 |---|---|---|
 | `POST` | `/api/mix/calculate` | Recibe `{controlId, value}` (valor MIDI 0-127) y devuelve `{status, action}`. |
 
+### Motor de mezcla (`mixing`)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/mix/next` | `{trackId, limit?}` (límite 1-20, por defecto 5). Las pistas que mejor siguen a la indicada, de mayor a menor compatibilidad. |
+| `POST` | `/api/mix/transition` | `{fromTrackId, toTrackId}`. Plan para pasar de una pista a la otra. |
+
+La **compatibilidad** (0 a 1) combina tempo (45 %), armonía (40 %) y energía (15 %):
+
+- *Tempo*: cuánto pitch hay que mover para igualar los BPM, con el límite habitual del fader (±8 %). También se
+  prueba la otra pista a la mitad o al doble de tempo (174 contra 87).
+- *Armonía*: pasos de distancia en la rueda de Camelot (misma = 1.0, vecina o relativa = 0.8, dos pasos = 0.5,
+  tres = 0.25, más lejos = 0).
+- *Energía*: 1 menos la diferencia.
+
+El **plan de transición** elige el estilo y la duración: 16 compases si el tempo casi coincide y las tonalidades son
+vecinas; 8 con algo más de ajuste o tonalidades a 2-3 pasos; 4 si las tonalidades chocan; y **corte** directo si
+los tempos no se pueden igualar. La mezcla sale en el último punto de mezcla de la pista actual donde todavía cabe,
+y la siguiente entra desde su primer punto de mezcla. Incluye curvas por pulso: crossfader de potencia constante,
+intercambio de graves a mitad (nunca suenan los graves de las dos pistas a la vez) y cruce lineal de medios y agudos.
+
 ### Análisis de audio (`audio`)
 
 | Método | Ruta | Descripción |
