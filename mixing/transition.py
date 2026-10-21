@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from audio.camelot import harmonic_distance
 
-from .compatibility import Compatibility, TrackInfo, compatibility
+from .compatibility import DEFAULT_WEIGHTS, Compatibility, ScoringWeights, TrackInfo, compatibility
 from .tempo import TempoMatch
 
 BEATS_PER_BAR = 4
@@ -95,9 +95,9 @@ def choose_mix_out(track: TrackInfo, transition_seconds: float) -> float:
     return round(max(fitting), 3) if fitting else round(latest, 3)
 
 
-def plan_transition(a: TrackInfo, b: TrackInfo) -> TransitionPlan:
-    """Como pasar de la pista A a la pista B."""
-    result = compatibility(a, b)
+def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAULT_WEIGHTS) -> TransitionPlan:
+    """Como pasar de la pista A a la pista B. Los pesos solo afectan a la puntuacion de compatibilidad."""
+    result = compatibility(a, b, weights)
     match = result.tempo_match
     style, bars = choose_style_and_bars(match, harmonic_distance(a.camelot, b.camelot))
 

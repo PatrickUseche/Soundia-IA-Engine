@@ -6,8 +6,10 @@ from django.views.decorators.csrf import csrf_exempt
 
 from audio.models import Track
 
-from .compatibility import TrackInfo, rank_next_tracks
+from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
+from .models import LearnedWeights
 from .transition import plan_transition
+from .weights import current_weights, feedback_count, record_feedback
 
 DEFAULT_LIMIT = 5
 MAX_LIMIT = 20
@@ -62,6 +64,10 @@ def _compatibility_to_dict(result) -> dict:
     }
 
 
+def _weights_to_dict(weights: ScoringWeights) -> dict:
+    return {'tempo': weights.tempo, 'harmonic': weights.harmonic, 'energy': weights.energy}
+
+
 def _track_info_to_dict(info: TrackInfo) -> dict:
     return {
         'id': info.id, 'title': info.title, 'bpm': info.bpm, 'camelot': info.camelot,
@@ -97,7 +103,7 @@ def next_tracks(request):
         return JsonResponse({'error': str(error)}, status=404)
 
     candidates = [TrackInfo.from_model(track) for track in Track.objects.exclude(pk=track_id)]
-    ranking = rank_next_tracks(current, candidates, limit)
+    ranking = rank_next_tracks(current, candidates, limit, current_weights())
     return JsonResponse({
         'current': _track_info_to_dict(current),
         'candidates': [
@@ -125,7 +131,7 @@ def transition(request):
     except NotFound as error:
         return JsonResponse({'error': str(error)}, status=404)
 
-    plan = plan_transition(origin, destination)
+    plan = plan_transition(origin, destination, current_weights())
     return JsonResponse({
         'fromTrackId': from_id,
         'toTrackId': to_id,
@@ -137,4 +143,46 @@ def transition(request):
         'tempoMatch': _tempo_match_to_dict(plan.tempo_match),
         'compatibility': _compatibility_to_dict(plan.compatibility),
         'automation': [_automation_point_to_dict(point) for point in plan.automation],
+    })
+
+
+@csrf_exempt
+def feedback(request):
+    """POST {fromTrackId, toTrackId, liked}: valora una transicion; el motor reentrena sus pesos con ella."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    try:
+        data = _read_json_object(request)
+        from_id = _read_id(data, 'fromTrackId')
+        to_id = _read_id(data, 'toTrackId')
+        liked = data.get('liked')
+        # Se exige un booleano de verdad: en Python 1 == True y "si" es truthy, y no deben pasar por valoraciones.
+        if not isinstance(liked, bool):
+            raise BadRequest("Falta 'liked' o no es verdadero/falso.")
+        if from_id == to_id:
+            raise BadRequest('No se puede valorar una transicion de una pista a si misma.')
+        origin = _get_track(from_id)
+        destination = _get_track(to_id)
+    except BadRequest as error:
+        return JsonResponse({'error': str(error)}, status=400)
+    except NotFound as error:
+        return JsonResponse({'error': str(error)}, status=404)
+
+    weights = record_feedback(origin, destination, liked)
+    return JsonResponse({
+        'weights': _weights_to_dict(weights),
+        'samples': feedback_count(),
+        'learned': LearnedWeights.objects.exists(),
+    }, status=201)
+
+
+def weights(request):
+    """GET: los pesos de la puntuacion vigentes, si son aprendidos y con cuantas valoraciones."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    learned = LearnedWeights.objects.first()
+    return JsonResponse({
+        'weights': _weights_to_dict(current_weights()),
+        'learned': learned is not None,
+        'samples': max(feedback_count(), learned.samples if learned else 0),
     })
