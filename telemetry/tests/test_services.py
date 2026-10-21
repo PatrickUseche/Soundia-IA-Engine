@@ -41,3 +41,18 @@ class AiMixServiceTests(TestCase):
     def test_valor_negativo_se_rechaza(self):
         with self.assertRaises(ValueError):
             AiMixService.calculate_transition(MidiEventDto(control_id=14, value=-1))
+
+    def test_calcula_la_estrategia_una_sola_vez(self):
+        estrategia = ContadorStrategy()
+        AiMixService.set_strategy(estrategia)
+
+        AiMixService.calculate_transition(MidiEventDto(control_id=14, value=100))
+
+        self.assertEqual(estrategia.llamadas, 1)
+
+    def test_devuelve_la_misma_decision_que_persiste(self):
+        AiMixService.set_strategy(ContadorStrategy())
+
+        decision = AiMixService.calculate_transition(MidiEventDto(control_id=14, value=100))
+
+        self.assertEqual(decision.action, AiDecisionLog.objects.get().action_taken)

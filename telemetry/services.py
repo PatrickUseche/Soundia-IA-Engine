@@ -24,4 +24,4 @@ class AiMixService:
             action_taken = decision_dto.action
         )
         
-        return cls._strategy.calculate(event)
+        return decision_dto
