@@ -22,6 +22,11 @@ class Track(models.Model):
         blank=True,
         help_text="Puntos de mezcla en segundos, ordenados de menor a mayor.",
     )
+    audio_file = models.FileField(
+        upload_to='tracks/',
+        blank=True,
+        help_text="Archivo de audio original, para poder reproducir la pista en los decks.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

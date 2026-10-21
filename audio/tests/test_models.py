@@ -1,7 +1,10 @@
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
+from django.core.files.base import ContentFile
+
 from audio.models import Track
+from audio.tests.media import TempMediaMixin
 
 
 def crear_track(**cambios):
@@ -46,3 +49,35 @@ class TrackModelTests(TestCase):
         crear_track(title='nueva').save()
 
         self.assertEqual(Track.objects.first().title, 'nueva')
+
+
+class TrackAudioFileTests(TempMediaMixin, TestCase):
+    def test_una_pista_nueva_no_tiene_archivo(self):
+        track = crear_track()
+        track.save()
+
+        self.assertFalse(track.audio_file)
+
+    def test_guarda_el_archivo_de_audio(self):
+        track = crear_track()
+        track.save()
+
+        track.audio_file.save('tema.wav', ContentFile(b'RIFFdatos'))
+
+        track.refresh_from_db()
+        self.assertTrue(track.audio_file)
+        self.assertTrue(track.audio_file.name.startswith('tracks/'))
+        with track.audio_file.open('rb') as archivo:
+            self.assertEqual(archivo.read(), b'RIFFdatos')
+
+    def test_dos_archivos_con_el_mismo_nombre_no_se_pisan(self):
+        a, b = crear_track(), crear_track()
+        a.save()
+        b.save()
+
+        a.audio_file.save('tema.wav', ContentFile(b'AAAA'))
+        b.audio_file.save('tema.wav', ContentFile(b'BBBB'))
+
+        self.assertNotEqual(a.audio_file.name, b.audio_file.name)
+        with a.audio_file.open('rb') as archivo:
+            self.assertEqual(archivo.read(), b'AAAA')
