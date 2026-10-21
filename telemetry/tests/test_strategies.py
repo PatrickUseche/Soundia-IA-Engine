@@ -22,3 +22,8 @@ class EqTransitionStrategyTests(SimpleTestCase):
         decision = self.strategy.calculate(MidiEventDto(control_id=1, value=127))
 
         self.assertIn("100", decision.action)
+
+    def test_porcentaje_se_formatea_con_un_decimal(self):
+        decision = self.strategy.calculate(MidiEventDto(control_id=1, value=127))
+
+        self.assertTrue(decision.action.endswith("al 100.0%"), decision.action)

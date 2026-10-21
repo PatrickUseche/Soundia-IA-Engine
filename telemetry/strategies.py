@@ -12,5 +12,5 @@ class EqTransitionStrategy(MixStrategy):
         # Por ahora, se simulara el calculo de la red neuronal.
         intensidad_porcentual = (event.value / 127.0) * 100
         
-        action = f"Corte de frecuencias bajas (EQ) en deck {event.control_id} al {intensidad_porcentual:1f}%"
+        action = f"Corte de frecuencias bajas (EQ) en deck {event.control_id} al {intensidad_porcentual:.1f}%"
         return AiDecisionDto(status="success", action=action)
