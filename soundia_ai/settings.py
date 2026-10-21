@@ -36,6 +36,9 @@ if not SECRET_KEY:
     # Clave solo para desarrollo local; nunca se usa con DEBUG=False.
     SECRET_KEY = 'django-insecure-solo-desarrollo-local'
 
+# Carpeta donde se guardan los audios subidos (ignorada por git). Se puede cambiar con MEDIA_ROOT.
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
+
 # Tamano maximo de un archivo de audio subido para analizar (por defecto 50 MB).
 AUDIO_MAX_UPLOAD_BYTES = int(os.environ.get('AUDIO_MAX_UPLOAD_BYTES', 50 * 1024 * 1024))
 
