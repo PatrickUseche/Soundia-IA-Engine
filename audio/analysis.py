@@ -106,3 +106,91 @@ def detect_key(y: np.ndarray, sr: int) -> KeyEstimate:
             if best is None or correlation > best.confidence:
                 best = KeyEstimate(pitch_class, mode, correlation)
     return KeyEstimate(best.pitch_class, best.mode, min(max(best.confidence, 0.0), 1.0))
+
+
+# Nivel RMS (en dBFS) que se considera energia 0 y energia 1.
+ENERGY_FLOOR_DB = -40.0
+ENERGY_CEILING_DB = 0.0
+
+
+def rms_to_energy(rms: float) -> float:
+    """Convierte un nivel RMS lineal a energia normalizada entre 0 (<= -40 dBFS) y 1 (0 dBFS)."""
+    if rms <= 0:
+        return 0.0
+    db = 20 * np.log10(rms)
+    return float(np.clip((db - ENERGY_FLOOR_DB) / (ENERGY_CEILING_DB - ENERGY_FLOOR_DB), 0.0, 1.0))
+
+
+def compute_energy(y: np.ndarray, sr: int) -> float:
+    """Energia media de la pista, de 0 a 1, segun su nivel RMS en dBFS."""
+    validate_signal(y, sr)
+    rms = float(np.sqrt(np.mean(np.square(y))))
+    return rms_to_energy(rms)
+
+
+# Compases de salida que se reservan al final de la pista para empezar a mezclar con la siguiente.
+OUTRO_BARS = 16
+# Una variacion de energia mayor que esto (respecto a los 4 compases previos) marca un cambio de seccion.
+CHANGE_RATIO_UP = 1.6
+CHANGE_RATIO_DOWN = 0.5
+# Fraccion de compas que se tolera al contar los compases completos de la pista.
+BAR_COUNT_TOLERANCE = 0.05
+# Fraccion de pulso que se adelanta la ventana de analisis de cada compas.
+BAR_WINDOW_LEAD_BEATS = 0.1
+# Separacion minima entre dos cues, en compases, para no marcar el mismo cambio varias veces.
+MIN_CUE_GAP_BARS = 8
+
+
+def _first_onset_time(y: np.ndarray, sr: int) -> float:
+    """Instante del primer ataque musical. Se rellena un poco de silencio al inicio porque librosa no
+    detecta un pulso que cae justo en el primer cuadro de la senal."""
+    padding = 2048
+    padded = np.concatenate([np.zeros(padding), y])
+    onsets = librosa.onset.onset_detect(y=padded, sr=sr, units='time')
+    if len(onsets) == 0:
+        return 0.0
+    return max(float(onsets[0]) - padding / sr, 0.0)
+
+
+def find_cue_points(y: np.ndarray, sr: int, bpm: float, beats_per_bar: int = 4) -> list[float]:
+    """Puntos de mezcla en segundos, alineados a la rejilla de compases del tempo dado.
+
+    Incluye el inicio de la musica, los cambios fuertes de energia (caidas, subidas, breakdowns) y el
+    punto de salida, OUTRO_BARS compases antes del final.
+    """
+    validate_signal(y, sr)
+    first_beat = _first_onset_time(y, sr)
+
+    bar_seconds = beats_per_bar * 60.0 / bpm
+    duration = len(y) / sr
+    # Pequena tolerancia: el retraso de deteccion del primer ataque no debe hacer perder el ultimo compas.
+    bar_count = int((duration - first_beat) / bar_seconds + BAR_COUNT_TOLERANCE)
+    if bar_count < 1:
+        return [round(first_beat, 3)]
+
+    # Las ventanas se adelantan un poco: el ataque que marca la barra del compas se detecta con unos
+    # milisegundos de retraso y, sin este margen, caeria al final del compas anterior.
+    lead = BAR_WINDOW_LEAD_BEATS * 60.0 / bpm
+
+    def window(bar: int) -> np.ndarray:
+        start = max(first_beat + bar * bar_seconds - lead, 0.0)
+        end = first_beat + (bar + 1) * bar_seconds - lead
+        return y[int(start * sr):int(end * sr)]
+
+    bar_energy = np.array([float(np.sqrt(np.mean(np.square(window(i))))) for i in range(bar_count)])
+
+    cue_bars = [0]
+    for bar in range(4, bar_count):
+        previous = bar_energy[bar - 4:bar].mean()
+        if previous <= 0:
+            continue
+        ratio = bar_energy[bar] / previous
+        changed = ratio >= CHANGE_RATIO_UP or ratio <= CHANGE_RATIO_DOWN
+        if changed and bar - cue_bars[-1] >= MIN_CUE_GAP_BARS:
+            cue_bars.append(bar)
+
+    outro_bar = bar_count - OUTRO_BARS
+    if outro_bar > cue_bars[-1] and outro_bar - cue_bars[-1] >= MIN_CUE_GAP_BARS:
+        cue_bars.append(outro_bar)
+
+    return [round(first_beat + bar * bar_seconds, 3) for bar in cue_bars]
