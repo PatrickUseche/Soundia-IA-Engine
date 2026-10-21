@@ -30,10 +30,10 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 ## Fase 4 — IA real
 
-- [ ] feat(ml): extraer dataset desde AiDecisionLog y las sesiones de Spring [4.1]
-- [ ] feat(ml): recomendador de pistas con embeddings [4.2]
-- [ ] feat(ml): estrategia de mezcla basada en modelo entrenado, intercambiable por Strategy [4.3]
-- [ ] feat(ml): evaluación y versionado del modelo [4.4]
+- [x] feat(ml): el dataset son las valoraciones del DJ de cada transición (me gustó / no me gustó) con sus puntuaciones, y no AiDecisionLog: ese registro no dice si una decisión fue buena [4.1]
+- [ ] feat(ml): recomendador de pistas con embeddings (pendiente: no hay datos suficientes para entrenarlos; primero hace falta acumular valoraciones y escuchas) [4.2]
+- [x] feat(ml): puntuación de compatibilidad con pesos aprendidos por regresión logística, que reemplazan a los fijos 45/40/15 [4.3]
+- [ ] feat(ml): evaluación (validación cruzada) y versionado de los pesos aprendidos, con vuelta atrás [4.4]
 
 ## Fase 5 — Despliegue
 

@@ -64,6 +64,30 @@ los tempos no se pueden igualar. La mezcla sale en el último punto de mezcla de
 y la siguiente entra desde su primer punto de mezcla. Incluye curvas por pulso: crossfader de potencia constante,
 intercambio de graves a mitad (nunca suenan los graves de las dos pistas a la vez) y cruce lineal de medios y agudos.
 
+### Aprendizaje de los pesos (`mixing`)
+
+El motor **aprende de las valoraciones del DJ**: cuando una transición suena bien o mal, se valora y el motor ajusta cuánto
+pesa cada criterio (tempo, armonía, energía) *para ese DJ*, en lugar de usar siempre 45/40/15.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/mix/feedback` | `{fromTrackId, toTrackId, liked}` (`liked` debe ser `true`/`false`). Guarda la valoración con las puntuaciones que tenía la transición y reentrena. Devuelve `{weights, samples, learned}`. |
+| `GET` | `/api/mix/weights` | Los pesos vigentes, si son aprendidos y con cuántas valoraciones. |
+
+Cómo aprende (`mixing/learning.py`): una **regresión logística** de tres variables entrenada con descenso de gradiente
+(con `numpy`, determinista). Detalles que importan:
+
+- Hasta **10 valoraciones** y de las dos clases no se aprende nada: se mantienen los pesos por defecto.
+- Los pesos por defecto cuentan como **30 ejemplos virtuales**: con pocas valoraciones mandan ellos y, al acumularse,
+  manda lo aprendido (con 20 valoraciones la armonía pasa a ~0.56; con 200, a ~0.68, en un caso sintético donde solo
+  importa la armonía).
+- Cada criterio se **centra** antes de entrenar: uno que no cambia entre «me gusta» y «no me gusta» no roba peso a los que sí.
+- Ningún peso baja de 0.02 y siempre suman 1. Solo cuentan las 2000 valoraciones más recientes (el gusto puede cambiar).
+- Siempre se reentrena **desde los pesos por defecto**, no desde los ya aprendidos: el resultado no depende del orden de llegada.
+
+**Limitaciones:** es un modelo muy pequeño (tres números) y sin validación cruzada ni versionado de los pesos; no hay
+embeddings de pistas. Se probó solo con valoraciones sintéticas: falta ver cómo se comporta con un DJ real.
+
 ### Análisis de audio (`audio`)
 
 | Método | Ruta | Descripción |
