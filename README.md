@@ -33,6 +33,7 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 | `DJANGO_SECRET_KEY` | clave de desarrollo | Obligatoria si `DJANGO_DEBUG=False` |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts permitidos |
 | `AUDIO_MAX_UPLOAD_BYTES` | `52428800` (50 MB) | Tamaño máximo de un audio subido |
+| `MEDIA_ROOT` | `media/` | Carpeta donde se guardan los audios subidos (ignorada por git) |
 
 ## Endpoints
 
@@ -69,7 +70,8 @@ intercambio de graves a mitad (nunca suenan los graves de las dos pistas a la ve
 |---|---|---|
 | `POST` | `/api/audio/analyze` | `multipart/form-data` con `file` (WAV, FLAC, OGG o MP3) y `title` opcional. Analiza y guarda la pista. |
 | `GET` | `/api/audio/tracks` | Las 50 pistas más recientes. |
-| `GET` | `/api/audio/tracks/<id>` | Detalle de una pista. |
+| `GET` | `/api/audio/tracks/<id>` | Detalle de una pista (incluye `hasAudio`). |
+| `GET` | `/api/audio/tracks/<id>/file` | El audio original, para reproducirlo en los decks. 404 si la pista no tiene audio o el archivo ya no está. |
 
 Respuesta de `analyze` (201):
 
@@ -77,7 +79,7 @@ Respuesta de `analyze` (201):
 {
   "id": 1, "title": "tema.wav", "duration": 215.3,
   "bpm": 127.98, "key": "A minor", "camelot": "8A", "energy": 0.62,
-  "cuePoints": [0.4, 30.4, 60.4, 180.4], "createdAt": "2026-10-21T18:30:00+00:00"
+  "cuePoints": [0.4, 30.4, 60.4, 180.4], "hasAudio": true, "createdAt": "2026-10-21T18:30:00+00:00"
 }
 ```
 
