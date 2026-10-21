@@ -38,5 +38,5 @@ Al terminarla se marca `[x]` en ese mismo commit.
 ## Fase 5 — Despliegue
 
 - [ ] chore(db): pasar de SQLite a PostgreSQL [5.1]
-- [ ] chore(docker): Dockerfile del motor [5.2]
+- [x] chore(docker): Dockerfile del motor [5.2] (escrito pero sin probar: no hay Docker en la máquina de desarrollo)
 - [ ] chore(ci): pipeline de GitHub Actions con tests [5.3]
