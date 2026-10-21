@@ -3,9 +3,11 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 
 from mixing.compatibility import (
+    DEFAULT_WEIGHTS,
     ENERGY_WEIGHT,
     HARMONIC_WEIGHT,
     TEMPO_WEIGHT,
+    ScoringWeights,
     TrackInfo,
     compatibility,
     energy_score,
@@ -149,3 +151,55 @@ class RankNextTracksTests(SimpleTestCase):
         ranking = rank_next_tracks(actual, [tonalidad_lejana, misma_tonalidad])
 
         self.assertEqual(ranking[0][0].id, 2)
+
+
+class ScoringWeightsTests(SimpleTestCase):
+    def test_los_pesos_por_defecto_son_los_de_siempre(self):
+        self.assertEqual(
+            (DEFAULT_WEIGHTS.tempo, DEFAULT_WEIGHTS.harmonic, DEFAULT_WEIGHTS.energy),
+            (TEMPO_WEIGHT, HARMONIC_WEIGHT, ENERGY_WEIGHT),
+        )
+
+    def test_unos_pesos_validos_se_crean(self):
+        pesos = ScoringWeights(0.2, 0.5, 0.3)
+
+        self.assertEqual((pesos.tempo, pesos.harmonic, pesos.energy), (0.2, 0.5, 0.3))
+
+    def test_los_pesos_deben_sumar_uno(self):
+        for invalido in [(0.5, 0.5, 0.5), (0.1, 0.1, 0.1), (1.0, 0.0, 0.5)]:
+            with self.subTest(pesos=invalido):
+                with self.assertRaises(ValueError):
+                    ScoringWeights(*invalido)
+
+    def test_no_se_admiten_pesos_negativos(self):
+        with self.assertRaises(ValueError):
+            ScoringWeights(1.2, -0.1, -0.1)
+
+    def test_se_pueden_usar_pesos_que_ignoran_un_criterio(self):
+        ScoringWeights(0.0, 1.0, 0.0)
+
+    def test_la_puntuacion_usa_los_pesos_indicados(self):
+        a = track(1, bpm=128, camelot='8B', energy=0.6)
+        b = track(2, bpm=128, camelot='3A', energy=0.6)   # tempo y energia perfectos, armonia nula
+
+        solo_tempo = compatibility(a, b, ScoringWeights(1.0, 0.0, 0.0))
+        solo_armonia = compatibility(a, b, ScoringWeights(0.0, 1.0, 0.0))
+
+        self.assertEqual(solo_tempo.score, 1.0)
+        self.assertEqual(solo_armonia.score, 0.0)
+
+    def test_los_pesos_cambian_el_orden_del_ranking(self):
+        actual = track(1, bpm=128, camelot='8B')
+        buen_tempo = track(2, bpm=128, camelot='3A')        # tempo perfecto, armonia nula
+        buena_armonia = track(3, bpm=122, camelot='8B')     # armonia perfecta, tempo regular
+
+        con_tempo = rank_next_tracks(actual, [buen_tempo, buena_armonia], weights=ScoringWeights(0.9, 0.05, 0.05))
+        con_armonia = rank_next_tracks(actual, [buen_tempo, buena_armonia], weights=ScoringWeights(0.05, 0.9, 0.05))
+
+        self.assertEqual(con_tempo[0][0].id, 2)
+        self.assertEqual(con_armonia[0][0].id, 3)
+
+    def test_sin_indicar_pesos_se_usan_los_por_defecto(self):
+        a, b = track(1, bpm=128, camelot='8B'), track(2, bpm=126, camelot='9B')
+
+        self.assertEqual(compatibility(a, b), compatibility(a, b, DEFAULT_WEIGHTS))
