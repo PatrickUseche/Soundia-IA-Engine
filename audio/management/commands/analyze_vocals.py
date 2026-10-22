@@ -30,7 +30,10 @@ class Command(BaseCommand):
             vocal_jobs.run_vocal_analysis(pista.id)
             pista.refresh_from_db()
             if pista.vocal_status == Track.VOCALS_DONE:
-                final = f'{pista.vocal_last_end:.1f} s' if pista.vocal_last_end is not None else 'sin voz al final'
-                self.stdout.write(self.style.SUCCESS(f'  {pista.title}: la voz acaba en {final}'))
+                if pista.vocal_last_end is None:
+                    resultado = 'sin voz en el final'
+                else:
+                    resultado = f'la voz acaba en {pista.vocal_last_end:.1f} s'
+                self.stdout.write(self.style.SUCCESS(f'  {pista.title}: {resultado}'))
             else:
                 self.stdout.write(self.style.WARNING(f'  {pista.title}: {pista.get_vocal_status_display()}'))
