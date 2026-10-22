@@ -123,6 +123,7 @@ ruidosa (con 10-20 cada grupo de prueba tiene 2-4 ejemplos). Se probó solo con 
 | `POST` | `/api/audio/analyze` | `multipart/form-data` con `file` (WAV, FLAC, OGG o MP3) y `title` opcional. Analiza y guarda la pista. |
 | `GET` | `/api/audio/tracks` | Las 50 pistas más recientes. |
 | `GET` | `/api/audio/tracks/<id>` | Detalle de una pista (incluye `hasAudio`). |
+| `PUT` | `/api/audio/tracks/<id>/grid` | `{downbeat}`: el DJ señala un instante (segundos) que es un «1» del compás. Se ajusta al pulso más cercano de la rejilla, queda como primer tiempo con `confidence` 1 y `grid.manual` verdadero; los pulsos y el tempo no cambian. 400 si el cuerpo o el instante no son válidos, 409 si la pista no tiene rejilla. |
 | `POST` | `/api/audio/tracks/<id>/vocals` | Pide analizar la voz del final y del inicio de una pista ya guardada (en segundo plano; 202). 503 si el modelo no está instalado. |
 | `GET` | `/api/audio/tracks/<id>/file` | El audio original, para reproducirlo en los decks. 404 si la pista no tiene audio o el archivo ya no está. |
 
@@ -134,7 +135,7 @@ Respuesta de `analyze` (201):
   "bpm": 127.98, "key": "A minor", "camelot": "8A", "energy": 0.62,
   "cuePoints": [0.4, 30.4, 60.4, 180.4], "hasAudio": true, "createdAt": "2026-10-21T18:30:00+00:00",
   "vocals": {"status": "pending", "lastEnd": null, "firstStart": null},
-  "grid": {"offset": 0.0375, "downbeat": 0.583, "confidence": 0.59}
+  "grid": {"offset": 0.0375, "downbeat": 0.583, "confidence": 0.59, "manual": false}
 }
 ```
 
@@ -167,7 +168,13 @@ caen en `offset + k · 60/bpm`. `grid` es `null` si la pista no tiene un ritmo c
 - **Precisión medida:** en señales de referencia, error de fase ≤ 0,5 ms y de BPM ≤ 0,001. En música real no hay
   verdad conocida: la deriva de fase dentro de una pista es de ~10 ms en 3 min y el ruido o un tono puro dan una
   «fuerza» de pulso < 0,01 frente a 0,13-0,16 de la música real.
-- **Pistas ya guardadas:** `python manage.py analyze_grid` (o `--all`). Recalcula su BPM y sus puntos de mezcla.
+- **Pistas ya guardadas:** `python manage.py analyze_grid` (o `--all`). Recalcula su BPM y sus puntos de mezcla. Con `--all`
+  **no** se recalculan las pistas cuyo primer tiempo se fijó a mano (`grid.manual`); `--include-manual` las incluye y
+  pierde esa corrección.
+- **Fijar el primer tiempo a mano:** cuando la detección no se puede fiar (reggaetón: confianza ~0), el DJ escucha y
+  señala un «1» con `PUT /api/audio/tracks/<id>/grid`. Es lo único que hace falta para que el Auto-DJ alinee por
+  compases esa pista. Limitación: los puntos de mezcla (`cuePoints`) se calcularon con el primer tiempo anterior y
+  no se mueven.
 - **Límites:** asume tempo constante; el primer tiempo es una heurística (en ritmos con el bombo en todos los
   pulsos, como mucho reggaetón, no se puede saber).
 

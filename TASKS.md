@@ -52,4 +52,4 @@ Al terminarla se marca `[x]` en ese mismo commit.
 - [ ] feat(audio): soportar tempo variable y analizar más de los primeros 10 minutos [6.4]
 - [x] feat(ml): historial de versiones de los pesos con vuelta atrás, y una forma de reiniciar lo aprendido del momento de mezcla [6.5] (comando `manage.py learning`)
 - [ ] test(audio): validar el análisis y el aprendizaje con música y valoraciones reales, no sintéticas [6.6]
-- [ ] feat(audio): endpoint para fijar a mano el primer tiempo de una pista (PATCH de la rejilla, con confianza 1 y marca de que es manual), para cuando la detección no se puede fiar [6.7]
+- [x] feat(audio): endpoint para fijar a mano el primer tiempo de una pista (PUT /tracks/<id>/grid, con confianza 1 y marca de que es manual), para cuando la detección no se puede fiar [6.7] (el recálculo `analyze_grid --all` no pisa lo manual; los cuePoints no se mueven; falta el botón en el front y la ruta en Spring)

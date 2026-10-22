@@ -1,3 +1,5 @@
+import json
+import math
 import os
 
 from django.conf import settings
@@ -5,6 +7,7 @@ from django.http import FileResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .analysis import AudioTooShortError, SilentAudioError
+from .beatgrid import downbeat_from_choice
 from .models import Track
 from .separator import is_available
 from .services import UnsupportedAudioError, analyze_file
@@ -25,7 +28,10 @@ AUDIO_CONTENT_TYPES = {
 def _grid_to_dict(track: Track) -> dict | None:
     if track.grid_offset is None:
         return None
-    return {'offset': track.grid_offset, 'downbeat': track.grid_downbeat, 'confidence': track.grid_confidence}
+    return {
+        'offset': track.grid_offset, 'downbeat': track.grid_downbeat, 'confidence': track.grid_confidence,
+        'manual': track.grid_manual,
+    }
 
 
 def track_to_dict(track: Track) -> dict:
@@ -102,6 +108,37 @@ def track_detail(request, pk):
         track = Track.objects.get(pk=pk)
     except Track.DoesNotExist:
         return JsonResponse({'error': 'Pista no encontrada'}, status=404)
+    return JsonResponse(track_to_dict(track))
+
+
+@csrf_exempt
+def track_grid(request, pk):
+    """PUT `{downbeat}`: el DJ senala un instante (segundos) que es un "1" del compas. Se ajusta al pulso mas cercano
+    de la rejilla de la pista y se guarda como primer tiempo, con confianza 1 y marcado como manual."""
+    if request.method != 'PUT':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    try:
+        track = Track.objects.get(pk=pk)
+    except Track.DoesNotExist:
+        return JsonResponse({'error': 'Pista no encontrada'}, status=404)
+
+    try:
+        data = json.loads(request.body or b'null')
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({'error': 'El cuerpo debe ser un JSON valido'}, status=400)
+    chosen = data.get('downbeat') if isinstance(data, dict) else None
+    # bool es un int en Python: true/false no son segundos validos.
+    if isinstance(chosen, bool) or not isinstance(chosen, (int, float)) or not math.isfinite(chosen):
+        return JsonResponse({'error': "Falta 'downbeat': el segundo de la pista que es un primer tiempo"}, status=400)
+    if not 0 <= chosen <= track.duration:
+        return JsonResponse({'error': 'downbeat debe estar dentro de la duracion de la pista'}, status=400)
+    if track.grid_offset is None:
+        return JsonResponse({'error': 'La pista no tiene una rejilla de pulsos (no tiene un ritmo claro)'}, status=409)
+
+    track.grid_downbeat = downbeat_from_choice(track.grid_offset, track.bpm, float(chosen))
+    track.grid_confidence = 1.0
+    track.grid_manual = True
+    track.save(update_fields=['grid_downbeat', 'grid_confidence', 'grid_manual'])
     return JsonResponse(track_to_dict(track))
 
 

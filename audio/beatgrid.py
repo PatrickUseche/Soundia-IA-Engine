@@ -221,3 +221,15 @@ def estimate_grid(y: np.ndarray, sr: int, bpm_hint: float) -> BeatGrid:
         beat_strength=round(strength, 3),
         downbeat_confidence=round(confidence, 3),
     )
+
+
+def downbeat_from_choice(offset: float, bpm: float, chosen: float) -> float:
+    """Primer tiempo del primer compas a partir de un instante que el DJ senala como "un 1".
+
+    No se toca la fase de los pulsos (`offset`), solo cual de ellos es el primer tiempo: el instante elegido se
+    ajusta al pulso mas cercano de la rejilla y se reduce al primer compas, igual que hace `estimate_grid`.
+    """
+    period = 60.0 / bpm
+    nearest_beat = offset + round((chosen - offset) / period) * period
+    tolerance = EARLY_BEAT_TOLERANCE_SECONDS
+    return round(((nearest_beat + tolerance) % (BEATS_PER_BAR * period)) - tolerance, 4)

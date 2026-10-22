@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 from django.core.files.uploadedfile import SimpleUploadedFile
 from unittest import mock
@@ -281,7 +283,7 @@ class TrackFileViewTests(TempMediaMixin, TestCase):
 
         self.assertIsNone(self.client.get(f'{TRACKS}/{sin_rejilla.id}').json()['grid'])
         self.assertEqual(self.client.get(f'{TRACKS}/{con_rejilla.id}').json()['grid'],
-                         {'offset': 0.0239, 'downbeat': 0.5844, 'confidence': 0.585})
+                         {'offset': 0.0239, 'downbeat': 0.5844, 'confidence': 0.585, 'manual': False})
 
     def test_subir_una_pista_con_ritmo_guarda_su_rejilla(self):
         response = self.client.post(ANALYZE, {'file': wav(click_track(110.0, 30, first_beat=0.2))})
@@ -312,3 +314,92 @@ class TrackFileViewTests(TempMediaMixin, TestCase):
 
         self.assertTrue(self.client.get(f'{TRACKS}/{con_audio.id}').json()['hasAudio'])
         self.assertFalse(self.client.get(f'{TRACKS}/{sin_audio.id}').json()['hasAudio'])
+
+
+class FijarPrimerTiempoViewTests(TestCase):
+    """PUT /api/audio/tracks/<id>/grid: el DJ senala un "1" y se guarda como primer tiempo."""
+
+    def setUp(self):
+        # 120 BPM: pulso de 0.5 s y compas de 2 s; primer pulso en 0.1; primer tiempo dudoso (confianza 0.03).
+        self.pista = Track.objects.create(
+            title='tema', duration=60.0, bpm=120.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0],
+            grid_offset=0.1, grid_downbeat=0.1, grid_confidence=0.03)
+        self.url = f'{TRACKS}/{self.pista.id}/grid'
+
+    def fijar(self, cuerpo, pk=None):
+        url = self.url if pk is None else f'{TRACKS}/{pk}/grid'
+        datos = cuerpo if isinstance(cuerpo, (str, bytes)) else json.dumps(cuerpo)
+        return self.client.put(url, data=datos, content_type='application/json')
+
+    def test_guarda_el_primer_tiempo_con_confianza_total_y_marca_la_rejilla_como_manual(self):
+        respuesta = self.fijar({'downbeat': 4.6})
+
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(
+            respuesta.json()['grid'], {'offset': 0.1, 'downbeat': 0.6, 'confidence': 1.0, 'manual': True})
+        self.pista.refresh_from_db()
+        self.assertEqual((self.pista.grid_downbeat, self.pista.grid_confidence, self.pista.grid_manual), (0.6, 1.0, True))
+
+    def test_no_toca_la_fase_de_los_pulsos_ni_el_tempo(self):
+        self.fijar({'downbeat': 12.34})
+
+        self.pista.refresh_from_db()
+        self.assertEqual((self.pista.grid_offset, self.pista.bpm), (0.1, 120.0))
+
+    def test_ajusta_el_instante_al_pulso_mas_cercano(self):
+        self.fijar({'downbeat': 4.62})
+
+        self.pista.refresh_from_db()
+        self.assertEqual(self.pista.grid_downbeat, 0.6)
+
+    def test_acepta_un_entero_y_los_limites_de_la_pista(self):
+        self.assertEqual(self.fijar({'downbeat': 4}).status_code, 200)
+        self.assertEqual(self.fijar({'downbeat': 0}).status_code, 200)
+        self.assertEqual(self.fijar({'downbeat': 60.0}).status_code, 200)
+
+    def test_la_consulta_posterior_devuelve_la_rejilla_manual(self):
+        self.fijar({'downbeat': 4.6})
+
+        self.assertEqual(self.client.get(f'{TRACKS}/{self.pista.id}').json()['grid']['manual'], True)
+
+    def test_una_pista_sin_fijar_a_mano_dice_manual_false(self):
+        self.assertFalse(self.client.get(f'{TRACKS}/{self.pista.id}').json()['grid']['manual'])
+
+    def test_rechaza_un_cuerpo_que_no_es_un_objeto_json(self):
+        for cuerpo in ('no es json', '[1, 2]', '"texto"', 'null', ''):
+            respuesta = self.fijar(cuerpo)
+            self.assertEqual(respuesta.status_code, 400, cuerpo)
+
+    def test_rechaza_un_downbeat_que_falta_o_no_es_un_numero_valido(self):
+        for cuerpo in ({}, {'downbeat': None}, {'downbeat': '4.6'}, {'downbeat': True}, {'downbeat': [4.6]},
+                       '{"downbeat": NaN}', '{"downbeat": Infinity}'):
+            respuesta = self.fijar(cuerpo)
+            self.assertEqual(respuesta.status_code, 400, cuerpo)
+
+    def test_rechaza_un_instante_fuera_de_la_pista(self):
+        self.assertEqual(self.fijar({'downbeat': -0.1}).status_code, 400)
+        self.assertEqual(self.fijar({'downbeat': 60.1}).status_code, 400)
+
+    def test_una_peticion_rechazada_no_cambia_nada(self):
+        self.fijar({'downbeat': 999})
+
+        self.pista.refresh_from_db()
+        self.assertEqual((self.pista.grid_downbeat, self.pista.grid_confidence, self.pista.grid_manual), (0.1, 0.03, False))
+
+    def test_una_pista_sin_rejilla_responde_409(self):
+        sin_ritmo = Track.objects.create(
+            title='sin ritmo', duration=60.0, bpm=120.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
+
+        respuesta = self.fijar({'downbeat': 4.6}, pk=sin_ritmo.id)
+
+        self.assertEqual(respuesta.status_code, 409)
+        sin_ritmo.refresh_from_db()
+        self.assertFalse(sin_ritmo.grid_manual)
+
+    def test_una_pista_que_no_existe_responde_404(self):
+        self.assertEqual(self.fijar({'downbeat': 4.6}, pk=99999).status_code, 404)
+
+    def test_solo_acepta_put(self):
+        for metodo in ('get', 'post', 'patch', 'delete'):
+            respuesta = getattr(self.client, metodo)(self.url)
+            self.assertEqual(respuesta.status_code, 405, metodo)
