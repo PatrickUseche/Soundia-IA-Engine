@@ -36,6 +36,9 @@ if not SECRET_KEY:
     # Clave solo para desarrollo local; nunca se usa con DEBUG=False.
     SECRET_KEY = 'django-insecure-solo-desarrollo-local'
 
+# Tamano maximo de un archivo de audio subido para analizar (por defecto 50 MB).
+AUDIO_MAX_UPLOAD_BYTES = int(os.environ.get('AUDIO_MAX_UPLOAD_BYTES', 50 * 1024 * 1024))
+
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
@@ -53,6 +56,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'telemetry', # Microservicio receptor registrado.
+    'audio', # Analisis de audio: BPM, tonalidad, energia y puntos de mezcla.
 ]
 
 MIDDLEWARE = [

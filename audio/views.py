@@ -1,0 +1,74 @@
+from django.conf import settings
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
+from .analysis import AudioTooShortError, SilentAudioError
+from .models import Track
+from .services import UnsupportedAudioError, analyze_file
+
+# Maximo de pistas que devuelve el listado.
+LIST_LIMIT = 50
+
+
+def track_to_dict(track: Track) -> dict:
+    return {
+        'id': track.id,
+        'title': track.title,
+        'duration': track.duration,
+        'bpm': track.bpm,
+        'key': track.key,
+        'camelot': track.camelot,
+        'energy': track.energy,
+        'cuePoints': track.cue_points,
+        'createdAt': track.created_at.isoformat(),
+    }
+
+
+@csrf_exempt
+def analyze_track(request):
+    """POST multipart con el campo `file` (y `title` opcional): analiza la pista y la guarda."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+
+    upload = request.FILES.get('file')
+    if upload is None:
+        return JsonResponse({'error': "Falta el archivo de audio en el campo 'file'."}, status=400)
+    if upload.size > settings.AUDIO_MAX_UPLOAD_BYTES:
+        limite_mb = settings.AUDIO_MAX_UPLOAD_BYTES // (1024 * 1024)
+        return JsonResponse({'error': f'El archivo supera el maximo de {limite_mb} MB.'}, status=413)
+
+    try:
+        analysis = analyze_file(upload)
+    except UnsupportedAudioError as error:
+        return JsonResponse({'error': str(error)}, status=400)
+    except (AudioTooShortError, SilentAudioError) as error:
+        # El archivo es valido pero no se puede analizar (muy corto o sin senal).
+        return JsonResponse({'error': str(error)}, status=422)
+
+    track = Track.objects.create(
+        title=(request.POST.get('title') or upload.name)[:255],
+        duration=analysis.duration,
+        bpm=analysis.bpm,
+        key=analysis.key,
+        camelot=analysis.camelot,
+        energy=analysis.energy,
+        cue_points=analysis.cue_points,
+    )
+    return JsonResponse(track_to_dict(track), status=201)
+
+
+def list_tracks(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    tracks = Track.objects.all()[:LIST_LIMIT]
+    return JsonResponse({'tracks': [track_to_dict(track) for track in tracks]})
+
+
+def track_detail(request, pk):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    try:
+        track = Track.objects.get(pk=pk)
+    except Track.DoesNotExist:
+        return JsonResponse({'error': 'Pista no encontrada'}, status=404)
+    return JsonResponse(track_to_dict(track))

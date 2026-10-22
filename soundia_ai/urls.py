@@ -19,5 +19,6 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/audio/', include('audio.urls')),
     path('api/', include('telemetry.urls')),
 ]
