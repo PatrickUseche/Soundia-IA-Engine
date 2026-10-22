@@ -72,7 +72,7 @@ pesa cada criterio (tempo, armonía, energía) *para ese DJ*, en lugar de usar s
 | Método | Ruta | Descripción |
 |---|---|---|
 | `POST` | `/api/mix/feedback` | `{fromTrackId, toTrackId, liked}` (`liked` debe ser `true`/`false`). Guarda la valoración con las puntuaciones que tenía la transición y reentrena. Devuelve `{weights, samples, learned}`. |
-| `GET` | `/api/mix/weights` | Los pesos vigentes, si son aprendidos y con cuántas valoraciones. |
+| `GET` | `/api/mix/weights` | Los pesos vigentes, si son aprendidos, con cuántas valoraciones, su `version` y su acierto medido (`accuracy` frente a `defaultAccuracy`, `null` si no se pudo medir). |
 
 Cómo aprende (`mixing/learning.py`): una **regresión logística** de tres variables entrenada con descenso de gradiente
 (con `numpy`, determinista). Detalles que importan:
@@ -85,8 +85,15 @@ Cómo aprende (`mixing/learning.py`): una **regresión logística** de tres vari
 - Ningún peso baja de 0.02 y siempre suman 1. Solo cuentan las 2000 valoraciones más recientes (el gusto puede cambiar).
 - Siempre se reentrena **desde los pesos por defecto**, no desde los ya aprendidos: el resultado no depende del orden de llegada.
 
-**Limitaciones:** es un modelo muy pequeño (tres números) y sin validación cruzada ni versionado de los pesos; no hay
-embeddings de pistas. Se probó solo con valoraciones sintéticas: falta ver cómo se comporta con un DJ real.
+**Evaluación y versión.** Tras cada reentrenamiento se hace una **validación cruzada de 5 grupos** (`evaluate`): se aparta
+cada quinta parte de las valoraciones, se entrena con el resto y se mide cuántas de las apartadas acierta («me gustó» /
+«no me gustó», con un umbral entre las medias de cada clase). Se compara con los pesos por defecto y con quien dijera siempre
+lo más frecuente. **Si los pesos nuevos aciertan menos que los de por defecto, no se adoptan** y siguen los vigentes. Los
+adoptados llevan un número de `version` y su `accuracy`.
+
+**Limitaciones:** es un modelo muy pequeño (tres números); se guarda solo la última versión (no hay historial ni vuelta atrás
+a versiones anteriores, solo el rechazo de las peores); no hay embeddings de pistas. Con pocas valoraciones la medición es
+ruidosa (con 10-20 cada grupo de prueba tiene 2-4 ejemplos). Se probó solo con valoraciones sintéticas: falta ver cómo se comporta con un DJ real.
 
 ### Análisis de audio (`audio`)
 
