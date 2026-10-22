@@ -1,9 +1,11 @@
+import json
+import subprocess
 from io import StringIO
 from unittest import mock
 
 from django.core.files.base import ContentFile
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from audio import vocal_jobs
 from audio.models import Track
@@ -19,6 +21,48 @@ def crear_pista(con_audio=True, **cambios):
     if con_audio:
         pista.audio_file.save('tema.wav', ContentFile(b'RIFF'), save=True)
     return pista
+
+
+class AnalyzeInSubprocessTests(SimpleTestCase):
+    def ejecutar(self, returncode=0, stdout='', stderr='', excepcion=None):
+        resultado = subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
+        with mock.patch.object(vocal_jobs.subprocess, 'run', side_effect=excepcion, return_value=resultado) as lanzar:
+            return vocal_jobs.analyze_in_subprocess('/audio/tema.mp3', 200.0), lanzar
+
+    def test_devuelve_el_resultado_que_imprime_el_subproceso(self):
+        salida = 'ruido de librerias\n' + json.dumps({'window_start': 140.0, 'last_end': 188.5}) + '\n'
+
+        resultado, _ = self.ejecutar(stdout=salida)
+
+        self.assertEqual(resultado, VocalResult(window_start=140.0, last_end=188.5))
+
+    def test_una_pista_sin_voz_devuelve_none(self):
+        resultado, _ = self.ejecutar(stdout=json.dumps({'window_start': 140.0, 'last_end': None}))
+
+        self.assertIsNone(resultado.last_end)
+
+    def test_lanza_el_modulo_del_trabajador_con_el_python_actual_la_ruta_y_la_duracion(self):
+        _, lanzar = self.ejecutar(stdout=json.dumps({'window_start': 0.0, 'last_end': None}))
+
+        argumentos = lanzar.call_args.args[0]
+        self.assertEqual(argumentos[1:], ['-m', 'audio.vocal_worker', '/audio/tema.mp3', '200.0'])
+        self.assertIn('timeout', lanzar.call_args.kwargs)
+
+    def test_si_el_subproceso_se_cae_lo_explica_sin_tumbar_al_servidor(self):
+        with self.assertRaisesRegex(RuntimeError, '139'):
+            self.ejecutar(returncode=139, stderr='Segmentation fault')
+
+    def test_si_el_modelo_no_esta_instalado_lo_senala(self):
+        with self.assertRaises(VocalSeparationUnavailable):
+            self.ejecutar(returncode=vocal_jobs.UNAVAILABLE_EXIT_CODE)
+
+    def test_si_tarda_demasiado_falla(self):
+        with self.assertRaisesRegex(RuntimeError, 'tardo'):
+            self.ejecutar(excepcion=subprocess.TimeoutExpired(cmd='x', timeout=1))
+
+    def test_una_salida_sin_resultado_falla(self):
+        with self.assertRaisesRegex(RuntimeError, 'resultado'):
+            self.ejecutar(stdout='solo ruido')
 
 
 class RunVocalAnalysisTests(TempMediaMixin, TestCase):
@@ -121,9 +165,21 @@ class RequestVocalAnalysisTests(TempMediaMixin, TestCase):
         for estado in ('pending', 'running'):
             pista = crear_pista(vocal_status=estado)
             with mock.patch.object(vocal_jobs, 'is_available', return_value=True), \
-                    mock.patch.object(vocal_jobs, '_submit') as enviar:
+                    mock.patch.object(vocal_jobs, '_submit') as enviar, \
+                    mock.patch.object(vocal_jobs, '_active', {pista.id}):
                 self.assertEqual(vocal_jobs.request_vocal_analysis(pista), estado)
             enviar.assert_not_called()
+
+    def test_una_pista_que_figura_en_cola_pero_nadie_esta_analizando_se_vuelve_a_encolar(self):
+        # Quedo asi tras un fallo del servidor: el estado dice "analizando" pero no hay ningun trabajo vivo.
+        pista = crear_pista(vocal_status='running')
+
+        with mock.patch.object(vocal_jobs, 'is_available', return_value=True), \
+                mock.patch.object(vocal_jobs, '_submit') as enviar:
+            estado = vocal_jobs.request_vocal_analysis(pista)
+
+        self.assertEqual(estado, 'pending')
+        enviar.assert_called_once_with(pista.id)
 
     def test_una_pista_sin_audio_no_se_encola(self):
         pista = crear_pista(con_audio=False)
@@ -148,7 +204,7 @@ class AnalyzeVocalsCommandTests(TempMediaMixin, TestCase):
         sin_audio = crear_pista(title='c', con_audio=False)
         analizador = mock.Mock(return_value=VocalResult(140.0, 180.0))
 
-        with mock.patch.object(vocal_jobs, 'analyze_last_vocals', analizador):
+        with mock.patch.object(vocal_jobs, 'analyze_in_subprocess', analizador):
             salida = self.ejecutar()
 
         sin_analizar.refresh_from_db()
@@ -164,7 +220,7 @@ class AnalyzeVocalsCommandTests(TempMediaMixin, TestCase):
         crear_pista(title='a', vocal_status='done', vocal_last_end=100.0)
         analizador = mock.Mock(return_value=VocalResult(140.0, 180.0))
 
-        with mock.patch.object(vocal_jobs, 'analyze_last_vocals', analizador):
+        with mock.patch.object(vocal_jobs, 'analyze_in_subprocess', analizador):
             self.ejecutar('--all')
 
         self.assertEqual(analizador.call_count, 1)
