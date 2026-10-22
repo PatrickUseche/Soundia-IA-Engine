@@ -53,3 +53,10 @@ Al terminarla se marca `[x]` en ese mismo commit.
 - [x] feat(ml): historial de versiones de los pesos con vuelta atrás, y una forma de reiniciar lo aprendido del momento de mezcla [6.5] (comando `manage.py learning`)
 - [ ] test(audio): validar el análisis y el aprendizaje con música y valoraciones reales, no sintéticas [6.6]
 - [x] feat(audio): endpoint para fijar a mano el primer tiempo de una pista (PUT /tracks/<id>/grid, con confianza 1 y marca de que es manual), para cuando la detección no se puede fiar [6.7] (el recálculo `analyze_grid --all` no pisa lo manual; los cuePoints no se mueven; falta el botón en el front y la ruta en Spring)
+
+## Fase 7 — Despliegue en el navegador (pendiente)
+
+Encontrado al probar el sistema completo en un navegador real (2026-10-22); nada de esto se ha hecho todavía.
+
+- [ ] chore(deploy): con `DJANGO_DEBUG=False` hacen falta `DJANGO_SECRET_KEY` y `DJANGO_ALLOWED_HOSTS` con los nombres reales; no publicar el puerto 8000 (este servicio no tiene autenticación y solo debe verlo el API Gateway) [7.1]
+- [ ] chore(deploy): decidir si el análisis de voz (Demucs, ~800 MB de RAM por análisis) se ejecuta en el servidor o se apaga con `VOCAL_ANALYSIS=off`; en un equipo con 4 GB satura la memoria [7.2]
