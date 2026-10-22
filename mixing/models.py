@@ -25,6 +25,22 @@ class TransitionFeedback(models.Model):
         return f"{self.from_track_id} -> {self.to_track_id}: {'me gusto' if self.liked else 'no me gusto'}"
 
 
+class MixTimingFeedback(models.Model):
+    """Cuando el DJ pidio mezclar antes de lo que el Auto-DJ habia planeado: de ahi aprende cuando mezclar."""
+
+    from_track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name='+')
+    to_track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name='+')
+    planned_mix_out = models.FloatField(validators=[MinValueValidator(0)], help_text="Segundo de A en que el plan mezclaba.")
+    actual_mix_out = models.FloatField(validators=[MinValueValidator(0)], help_text="Segundo de A en que el DJ pidio mezclar.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f"{self.from_track_id} -> {self.to_track_id}: plan {self.planned_mix_out:.0f} s, DJ {self.actual_mix_out:.0f} s"
+
+
 class LearnedWeights(models.Model):
     """Pesos de la puntuacion aprendidos de las valoraciones. Solo existe una fila (la mas reciente)."""
 

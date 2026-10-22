@@ -53,6 +53,7 @@ class TransitionPlan:
     tempo_match: TempoMatch
     compatibility: Compatibility
     automation: list[AutomationPoint]
+    mix_out_advance: float = 0.0  # segundos que se adelanta la salida por lo aprendido de los DJ
 
 
 def eq_automation(steps: int) -> list[AutomationPoint]:
@@ -111,8 +112,12 @@ def choose_mix_out(track: TrackInfo, transition_seconds: float) -> float:
     return round(max(fitting), 3) if fitting else round(latest, 3)
 
 
-def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAULT_WEIGHTS) -> TransitionPlan:
-    """Como pasar de la pista A a la pista B. Los pesos solo afectan a la puntuacion de compatibilidad."""
+def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAULT_WEIGHTS,
+                    advance: float = 0.0) -> TransitionPlan:
+    """Como pasar de la pista A a la pista B. Los pesos solo afectan a la puntuacion de compatibilidad.
+
+    `advance` son los segundos que la mezcla sale antes de lo normal, aprendidos de cuando el DJ pidio mezclar antes.
+    """
     result = compatibility(a, b, weights)
     match = result.tempo_match
     style, bars = choose_style_and_bars(match, harmonic_distance(a.camelot, b.camelot))
@@ -123,10 +128,11 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
         style=style,
         bars=bars,
         seconds=seconds,
-        mix_out_at=choose_fade_out(a, seconds) if style == STYLE_FADE else choose_mix_out(a, seconds),
+        mix_out_at=choose_fade_out(a, seconds + advance) if style == STYLE_FADE else choose_mix_out(a, seconds + advance),
         mix_in_at=b.cue_points[0] if b.cue_points else 0.0,
         tempo_match=match,
         compatibility=result,
         # Una automatizacion por pulso.
         automation=eq_automation(bars * BEATS_PER_BAR),
+        mix_out_advance=advance,
     )
