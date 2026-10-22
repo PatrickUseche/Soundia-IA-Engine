@@ -39,4 +39,4 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 - [ ] chore(db): pasar de SQLite a PostgreSQL [5.1]
 - [ ] chore(docker): Dockerfile del motor [5.2]
-- [ ] chore(ci): pipeline de GitHub Actions con tests [5.3]
+- [x] chore(ci): pipeline de GitHub Actions con tests [5.3]
