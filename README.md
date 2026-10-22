@@ -115,7 +115,8 @@ Respuesta de `analyze` (201):
   "id": 1, "title": "tema.wav", "duration": 215.3,
   "bpm": 127.98, "key": "A minor", "camelot": "8A", "energy": 0.62,
   "cuePoints": [0.4, 30.4, 60.4, 180.4], "hasAudio": true, "createdAt": "2026-10-21T18:30:00+00:00",
-  "vocals": {"status": "pending", "lastEnd": null}
+  "vocals": {"status": "pending", "lastEnd": null},
+  "grid": {"offset": 0.0375, "downbeat": 0.583, "confidence": 0.59}
 }
 ```
 
@@ -131,6 +132,26 @@ Errores: `400` archivo ausente o ilegible, `413` demasiado grande, `422` válido
 - **Energía**: nivel RMS en dBFS normalizado entre 0 (-40 dB) y 1 (0 dB).
 - **Cues**: sobre la rejilla de compases del BPM: inicio de la música, cambios fuertes de energía
   (caídas, subidas, breakdowns, separados por ≥ 8 compases) y salida 16 compases antes del final.
+
+### Rejilla de pulsos (`audio/beatgrid.py`)
+
+Para mezclar a compás no basta con igualar el tempo: hay que saber en qué instante exacto suena cada golpe.
+Cada pista guarda su **rejilla**: `bpm` afinado, `grid.offset` (segundo del primer pulso), `grid.downbeat`
+(segundo del primer tiempo del compás) y `grid.confidence` (0-1: seguridad de que ese sea el «1»). Los pulsos
+caen en `offset + k · 60/bpm`. `grid` es `null` si la pista no tiene un ritmo claro.
+
+- **Tempo y fase:** la envolvente de ataques se pliega sobre el periodo de cada tempo candidato; con el correcto,
+  todos los golpes caen en la misma fase. Después se ajusta el tempo con la deriva de la fase a lo largo de la
+  pista y se afina la fase con la subida real de energía de la señal.
+- **Primer tiempo:** el pulso del compás con más energía de graves (bombo). Con pulsos todos iguales la
+  confianza sale ~0 y los puntos de mezcla siguen anclados al primer pulso; con `confidence ≥ 0.2` se anclan
+  al primer tiempo.
+- **Precisión medida:** en señales de referencia, error de fase ≤ 0,5 ms y de BPM ≤ 0,001. En música real no hay
+  verdad conocida: la deriva de fase dentro de una pista es de ~10 ms en 3 min y el ruido o un tono puro dan una
+  «fuerza» de pulso < 0,01 frente a 0,13-0,16 de la música real.
+- **Pistas ya guardadas:** `python manage.py analyze_grid` (o `--all`). Recalcula su BPM y sus puntos de mezcla.
+- **Límites:** asume tempo constante; el primer tiempo es una heurística (en ritmos con el bombo en todos los
+  pulsos, como mucho reggaetón, no se puede saber).
 
 ### Detección de voz (opcional)
 
