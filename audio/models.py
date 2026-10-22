@@ -5,6 +5,22 @@ from django.db import models
 class Track(models.Model):
     """Pista analizada: lo que el motor de mezcla necesita saber de ella."""
 
+    # Estado del analisis de voz (se hace aparte, en segundo plano: tarda minutos).
+    VOCALS_NONE = 'none'  # todavia no se ha pedido
+    VOCALS_PENDING = 'pending'  # en la cola
+    VOCALS_RUNNING = 'running'
+    VOCALS_DONE = 'done'
+    VOCALS_FAILED = 'failed'
+    VOCALS_UNAVAILABLE = 'unavailable'  # el modelo de separacion no esta instalado
+    VOCAL_STATUS_CHOICES = [
+        (VOCALS_NONE, 'sin analizar'),
+        (VOCALS_PENDING, 'en cola'),
+        (VOCALS_RUNNING, 'analizando'),
+        (VOCALS_DONE, 'analizada'),
+        (VOCALS_FAILED, 'fallo'),
+        (VOCALS_UNAVAILABLE, 'no disponible'),
+    ]
+
     title = models.CharField(max_length=255, help_text="Titulo o nombre del archivo.")
     duration = models.FloatField(help_text="Duracion en segundos.")
     bpm = models.FloatField(
@@ -26,6 +42,14 @@ class Track(models.Model):
         upload_to='tracks/',
         blank=True,
         help_text="Archivo de audio original, para poder reproducir la pista en los decks.",
+    )
+    vocal_status = models.CharField(
+        max_length=12, choices=VOCAL_STATUS_CHOICES, default=VOCALS_NONE,
+        help_text="Estado del analisis de voz del final de la pista.",
+    )
+    vocal_last_end = models.FloatField(
+        null=True, blank=True,
+        help_text="Segundo en que acaba la ultima frase cantada; vacio si no se analizo o no hay voz al final.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

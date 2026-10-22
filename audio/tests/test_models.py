@@ -17,6 +17,24 @@ def crear_track(**cambios):
 
 
 class TrackModelTests(TestCase):
+    def test_una_pista_nueva_no_tiene_analisis_de_voz(self):
+        crear_track().save()
+
+        track = Track.objects.get()
+        self.assertEqual(track.vocal_status, Track.VOCALS_NONE)
+        self.assertIsNone(track.vocal_last_end)
+
+    def test_guarda_hasta_donde_llega_la_voz(self):
+        crear_track(vocal_status=Track.VOCALS_DONE, vocal_last_end=229.7).save()
+
+        track = Track.objects.get()
+        self.assertEqual(track.vocal_status, 'done')
+        self.assertEqual(track.vocal_last_end, 229.7)
+
+    def test_rechaza_un_estado_de_voz_desconocido(self):
+        with self.assertRaises(ValidationError):
+            crear_track(vocal_status='quiza').full_clean()
+
     def test_se_guarda_y_se_lee_con_sus_puntos_de_mezcla(self):
         crear_track().save()
 
