@@ -8,4 +8,6 @@ urlpatterns = [
     path('feedback', views.feedback, name='feedback'),
     path('weights', views.weights, name='weights'),
     path('timing', views.mix_timing, name='mix_timing'),
+    path('recordings', views.recordings, name='recordings'),
+    path('recordings/<int:pk>', views.recording_detail, name='recording_detail'),
 ]
