@@ -97,6 +97,23 @@ def choose_style_and_bars(match: TempoMatch, harmonic_steps: int) -> tuple[str, 
     return STYLE_BLEND, BARS_NORMAL
 
 
+def fit_bars_to_intro(track: TrackInfo, bars: int, bar_seconds: float, mix_in_at: float) -> int:
+    """Compases de una mezcla larga que caben en la intro instrumental de la pista que entra.
+
+    Si se sabe donde empieza su voz, el solape no debe llegar hasta ella: dos voces a la vez ensucian la mezcla. Se
+    elige la mas larga de las mezclas habituales (sin alargar la pedida) cuyo solape acaba antes de esa voz; si ni la
+    mas corta cabe, se queda con la mas corta, porque menos de eso ya no es una mezcla.
+    """
+    first_start = track.vocal_first_start
+    if first_start is None:
+        return bars
+    room = first_start - mix_in_at
+    for candidate in (BARS_SMOOTH, BARS_NORMAL, BARS_QUICK):
+        if candidate <= bars and candidate * bar_seconds <= room:
+            return candidate
+    return min(bars, BARS_QUICK)
+
+
 def choose_fade_out(track: TrackInfo, transition_seconds: float, advance: float = 0.0) -> float:
     """Punto de salida de un fundido, sin cortar la letra de la pista que sale.
 
@@ -134,6 +151,9 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
     style, bars = choose_style_and_bars(match, harmonic_distance(a.camelot, b.camelot))
 
     bar_seconds = BEATS_PER_BAR * 60.0 / a.bpm
+    mix_in_at = b.cue_points[0] if b.cue_points else 0.0
+    if style == STYLE_BLEND:
+        bars = fit_bars_to_intro(b, bars, bar_seconds, mix_in_at)
     seconds = round(bars * bar_seconds, 3)
     return TransitionPlan(
         style=style,
@@ -141,7 +161,7 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
         seconds=seconds,
         mix_out_at=(choose_fade_out(a, seconds, advance) if style == STYLE_FADE
                     else choose_mix_out(a, seconds + advance)),
-        mix_in_at=b.cue_points[0] if b.cue_points else 0.0,
+        mix_in_at=mix_in_at,
         tempo_match=match,
         compatibility=result,
         # Una automatizacion por pulso.
