@@ -72,6 +72,7 @@ pesa cada criterio (tempo, armonía, energía) *para ese DJ*, en lugar de usar s
 | Método | Ruta | Descripción |
 |---|---|---|
 | `POST` | `/api/mix/feedback` | `{fromTrackId, toTrackId, liked}` (`liked` debe ser `true`/`false`). Guarda la valoración con las puntuaciones que tenía la transición y reentrena. Devuelve `{weights, samples, learned}`. |
+| `POST` | `/api/mix/timing` | `{fromTrackId, toTrackId, plannedMixOutAt, actualMixOutAt}` en segundos. El DJ pidió mezclar antes de lo planeado: se guarda y, con 3 casos o más, el motor adelanta sus mezclas la mediana de esos adelantos (máx. 120 s; cuentan los últimos 20). Devuelve `{samples, advanceSeconds, learned}`. `/api/mix/transition` devuelve el adelanto aplicado en `mixOutAdvance`. |
 | `GET` | `/api/mix/weights` | Los pesos vigentes, si son aprendidos, con cuántas valoraciones, su `version` y su acierto medido (`accuracy` frente a `defaultAccuracy`, `null` si no se pudo medir). |
 
 Cómo aprende (`mixing/learning.py`): una **regresión logística** de tres variables entrenada con descenso de gradiente

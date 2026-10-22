@@ -31,6 +31,7 @@ Al terminarla se marca `[x]` en ese mismo commit.
 ## Fase 4 — IA real
 
 - [x] feat(ml): el dataset son las valoraciones del DJ de cada transición (me gustó / no me gustó) con sus puntuaciones, y no AiDecisionLog: ese registro no dice si una decisión fue buena [4.1]
+- [x] feat(ml): aprender cuándo mezclar a partir de las veces que el DJ pide mezclar antes de lo planeado [4.5]
 - [ ] feat(ml): recomendador de pistas con embeddings (pendiente: no hay datos suficientes para entrenarlos; primero hace falta acumular valoraciones y escuchas) [4.2]
 - [x] feat(ml): puntuación de compatibilidad con pesos aprendidos por regresión logística, que reemplazan a los fijos 45/40/15 [4.3]
 - [x] feat(ml): evaluación (validación cruzada) y versionado de los pesos aprendidos [4.4] (sin historial ni vuelta atrás: solo se rechazan los pesos peores)
