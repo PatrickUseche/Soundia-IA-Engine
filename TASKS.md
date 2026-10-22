@@ -46,9 +46,10 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 ## Fase 6 — Pendiente
 
-- [ ] feat(audio): detectar el primer tiempo (downbeat) real del compás; hoy es una heurística y en ritmos con el bombo en todos los pulsos la confianza es baja [6.1]
+- [x] test(audio): investigar un mejor detector del primer tiempo (downbeat) [6.1] (sin cambio de algoritmo: la novedad de textura por posición del compás da ~25 % en cada una de las 4 posiciones en dos pistas reales, así que no discrimina, y sin una referencia de oído no se puede validar otra heurística; con confianza < 0,2 el Auto-DJ ya alinea por pulso y no por compás)
 - [ ] feat(audio): analizar también el inicio de la pista (voz y punto de entrada) para elegir dónde entra la pista B [6.2]
 - [ ] feat(mix): que el estilo blend (tempos igualados) use la información de voz [6.3]
 - [ ] feat(audio): soportar tempo variable y analizar más de los primeros 10 minutos [6.4]
 - [ ] feat(ml): historial de versiones de los pesos con vuelta atrás, y una forma de reiniciar lo aprendido del momento de mezcla [6.5]
 - [ ] test(audio): validar el análisis y el aprendizaje con música y valoraciones reales, no sintéticas [6.6]
+- [ ] feat(audio): endpoint para fijar a mano el primer tiempo de una pista (PATCH de la rejilla, con confianza 1 y marca de que es manual), para cuando la detección no se puede fiar [6.7]
