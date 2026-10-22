@@ -60,7 +60,7 @@ La **compatibilidad** (0 a 1) combina tempo (45 %), armonía (40 %) y energía (
 
 El **plan de transición** elige el estilo y la duración: 16 compases si el tempo casi coincide y las tonalidades son
 vecinas; 8 con algo más de ajuste o tonalidades a 2-3 pasos; 4 si las tonalidades chocan; y un **fundido** corto (2 compases, estilo `fade`) si
-los tempos no se pueden igualar: la pista entrante suena a su propio tempo, sin forzar el pitch. La mezcla sale en el último punto de mezcla de la pista actual donde todavía cabe,
+los tempos no se pueden igualar: la pista entrante suena a su propio tempo, sin forzar el pitch. El fundido empieza justo antes de que acabe la pista saliente (con 2 s de margen) para no cortar su final ni su letra. La mezcla sale en el último punto de mezcla de la pista actual donde todavía cabe,
 y la siguiente entra desde su primer punto de mezcla. Incluye curvas por pulso: crossfader de potencia constante,
 intercambio de graves a mitad (nunca suenan los graves de las dos pistas a la vez) y cruce lineal de medios y agudos.
 

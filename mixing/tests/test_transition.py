@@ -11,6 +11,8 @@ from mixing.transition import (
     BARS_SMOOTH,
     STYLE_BLEND,
     STYLE_FADE,
+    FADE_END_MARGIN_SECONDS,
+    choose_fade_out,
     choose_mix_out,
     choose_style_and_bars,
     eq_automation,
@@ -109,6 +111,14 @@ class ChooseStyleTests(SimpleTestCase):
         self.assertEqual(choose_style_and_bars(match_tempo(100, 140), 0), (STYLE_FADE, BARS_FADE))
 
 
+class ChooseFadeOutTests(SimpleTestCase):
+    def test_deja_un_margen_antes_del_final_para_que_el_fundido_no_se_pase(self):
+        self.assertEqual(choose_fade_out(track(duration=200), 5.0), 200 - 5.0 - FADE_END_MARGIN_SECONDS)
+
+    def test_una_pista_mas_corta_que_el_fundido_empieza_en_cero(self):
+        self.assertEqual(choose_fade_out(track(duration=4), 5.0), 0.0)
+
+
 class ChooseMixOutTests(SimpleTestCase):
     def test_elige_el_ultimo_cue_en_el_que_cabe_la_transicion(self):
         pista = track(duration=300, cues=[0.0, 60.0, 270.0])
@@ -171,10 +181,19 @@ class PlanTransitionTests(SimpleTestCase):
         self.assertEqual(plan.automation[0].gain_a, 1.0)
         self.assertEqual(plan.automation[-1].gain_b, 1.0)
 
-    def test_el_fundido_sale_en_el_ultimo_cue_de_la_pista_a(self):
+    def test_el_fundido_termina_con_la_cancion_en_vez_de_saltar_al_ultimo_cue(self):
+        # Cue de salida a 285 s: si el fundido empezara ahi, la pista A se apagaria 4 s despues y se perderia
+        # el resto de la cancion (con su letra).
         plan = plan_transition(track(1, bpm=128, duration=300, cues=[0.0, 285.0]), track(2, bpm=174))
 
-        self.assertEqual(plan.mix_out_at, 285.0)
+        self.assertEqual(plan.mix_out_at, round(300 - plan.seconds - FADE_END_MARGIN_SECONDS, 3))
+        self.assertGreater(plan.mix_out_at, 285.0)
+
+    def test_una_mezcla_con_tempos_igualados_sigue_saliendo_en_un_cue(self):
+        plan = plan_transition(track(1, bpm=128, duration=300, cues=[0.0, 60.0, 270.0]), track(2, bpm=128))
+
+        self.assertEqual(plan.style, STYLE_BLEND)
+        self.assertIn(plan.mix_out_at, [0.0, 60.0, 270.0])
 
     def test_la_automatizacion_tiene_un_punto_por_pulso(self):
         plan = plan_transition(track(1), track(2))
