@@ -9,6 +9,7 @@ from mixing.timing import (
     advance_from,
     learned_advance,
     record_mix_timing,
+    reset_timing,
     timing_count,
 )
 from mixing.transition import plan_transition
@@ -84,3 +85,25 @@ class PlanWithAdvanceTests(SimpleTestCase):
         a, b = self.info(1, 128, [0.0]), self.info(2, 174, [0.0])
 
         self.assertEqual(plan_transition(a, b, advance=500.0).mix_out_at, 0.0)
+
+
+class ResetTimingTests(TestCase):
+    def setUp(self):
+        self.a = Track.objects.create(
+            title='a', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.6, cue_points=[0.0])
+        self.b = Track.objects.create(
+            title='b', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.6, cue_points=[0.0])
+
+    def test_olvida_lo_aprendido_y_devuelve_cuantos_casos_borro(self):
+        for _ in range(MIN_TIMING_SAMPLES):
+            record_mix_timing(self.a, self.b, planned=120.0, actual=100.0)
+        self.assertGreater(learned_advance(), 0)
+
+        borrados = reset_timing()
+
+        self.assertEqual(borrados, MIN_TIMING_SAMPLES)
+        self.assertEqual(timing_count(), 0)
+        self.assertEqual(learned_advance(), 0.0)
+
+    def test_sin_casos_no_hace_nada(self):
+        self.assertEqual(reset_timing(), 0)

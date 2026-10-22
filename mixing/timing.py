@@ -30,6 +30,12 @@ def timing_count() -> int:
     return MixTimingFeedback.objects.count()
 
 
+def reset_timing() -> int:
+    """Olvida todo lo aprendido sobre cuando mezclar (el Auto-DJ vuelve a mezclar en el punto planeado)."""
+    deleted, _ = MixTimingFeedback.objects.all().delete()
+    return deleted
+
+
 def record_mix_timing(origin: Track, destination: Track, planned: float, actual: float) -> float:
     """Guarda el caso y devuelve el adelanto vigente con el."""
     MixTimingFeedback.objects.create(
