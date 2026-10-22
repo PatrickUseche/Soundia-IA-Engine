@@ -11,4 +11,3 @@ class AiDecisionLog(models.Model):
     
     def __str__(self):
         return f"Control {self.control_id} -> {self.action_taken}"
-    
