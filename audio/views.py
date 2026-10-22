@@ -6,7 +6,9 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .analysis import AudioTooShortError, SilentAudioError
 from .models import Track
+from .separator import is_available
 from .services import UnsupportedAudioError, analyze_file
+from .vocal_jobs import request_vocal_analysis
 
 # Maximo de pistas que devuelve el listado.
 LIST_LIMIT = 50
@@ -69,6 +71,8 @@ def analyze_track(request):
     # El analisis ya leyo el archivo hasta el final: se rebobina para guardarlo completo.
     upload.seek(0)
     track.audio_file.save(upload.name, upload, save=True)
+    # La voz del final se analiza aparte, en segundo plano: tarda minutos.
+    request_vocal_analysis(track)
     return JsonResponse(track_to_dict(track), status=201)
 
 
@@ -87,6 +91,22 @@ def track_detail(request, pk):
     except Track.DoesNotExist:
         return JsonResponse({'error': 'Pista no encontrada'}, status=404)
     return JsonResponse(track_to_dict(track))
+
+
+@csrf_exempt
+def request_vocals(request, pk):
+    """POST: pide analizar la voz del final de una pista ya guardada (se hace en segundo plano; responde 202)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    try:
+        track = Track.objects.get(pk=pk)
+    except Track.DoesNotExist:
+        return JsonResponse({'error': 'Pista no encontrada'}, status=404)
+    if not is_available():
+        return JsonResponse(
+            {'error': 'El analisis de voz no esta disponible: instala requirements-vocals.txt.'}, status=503)
+    request_vocal_analysis(track)
+    return JsonResponse(track_to_dict(track), status=202)
 
 
 def track_file(request, pk):

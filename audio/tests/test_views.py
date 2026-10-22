@@ -1,5 +1,7 @@
 import numpy as np
 from django.core.files.uploadedfile import SimpleUploadedFile
+from unittest import mock
+
 from django.test import TestCase, override_settings
 
 from audio.models import Track
@@ -121,6 +123,52 @@ class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
         despues = sorted(os.listdir(carpeta)) if os.path.exists(carpeta) else []
         self.assertEqual(despues, antes)
         self.assertEqual(Track.objects.count(), 0)
+
+
+class VocalAnalysisViewTests(TempMediaMixin, TestCase):
+    def crear(self, **cambios):
+        datos = dict(title='x', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+        datos.update(cambios)
+        return Track.objects.create(**datos)
+
+    def test_subir_una_pista_pide_analizar_su_voz_y_responde_con_el_estado(self):
+        def pedir(track):
+            track.vocal_status = Track.VOCALS_PENDING
+            track.save(update_fields=['vocal_status'])
+            return track.vocal_status
+
+        with mock.patch('audio.views.request_vocal_analysis', side_effect=pedir) as pedido:
+            response = self.client.post(ANALYZE, {'file': wav(cancion(bpm=124))})
+
+        self.assertEqual(response.status_code, 201)
+        pedido.assert_called_once()
+        self.assertEqual(response.json()['vocals']['status'], 'pending')
+
+    def test_pedir_el_analisis_de_voz_de_una_pista_existente(self):
+        pista = self.crear()
+
+        with mock.patch('audio.views.request_vocal_analysis', return_value='pending') as pedido,                 mock.patch('audio.views.is_available', return_value=True):
+            response = self.client.post(f'{TRACKS}/{pista.id}/vocals')
+
+        self.assertEqual(response.status_code, 202)
+        pedido.assert_called_once_with(pista)
+
+    def test_sin_el_modelo_instalado_responde_503_y_lo_explica(self):
+        pista = self.crear()
+
+        with mock.patch('audio.views.is_available', return_value=False):
+            response = self.client.post(f'{TRACKS}/{pista.id}/vocals')
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('requirements-vocals.txt', response.json()['error'])
+
+    def test_pista_inexistente_devuelve_404(self):
+        self.assertEqual(self.client.post(f'{TRACKS}/9999/vocals').status_code, 404)
+
+    def test_solo_acepta_post(self):
+        pista = self.crear()
+
+        self.assertEqual(self.client.get(f'{TRACKS}/{pista.id}/vocals').status_code, 405)
 
 
 class TrackQueryViewTests(TempMediaMixin, TestCase):

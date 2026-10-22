@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -41,6 +42,10 @@ MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
 
 # Tamano maximo de un archivo de audio subido para analizar (por defecto 50 MB).
 AUDIO_MAX_UPLOAD_BYTES = int(os.environ.get('AUDIO_MAX_UPLOAD_BYTES', 50 * 1024 * 1024))
+
+# Analisis de voz del final de las pistas (ver audio/vocal_jobs.py): 'auto' lo hace si el modelo esta instalado
+# (requirements-vocals.txt) y 'off' lo desactiva. En las pruebas esta siempre apagado.
+VOCAL_ANALYSIS = 'off' if 'test' in sys.argv else os.environ.get('VOCAL_ANALYSIS', 'auto')
 
 ALLOWED_HOSTS = [
     host.strip()
