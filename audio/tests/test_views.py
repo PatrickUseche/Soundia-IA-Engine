@@ -7,6 +7,7 @@ from django.test import TestCase, override_settings
 from audio.models import Track
 from audio.tests.media import TempMediaMixin
 from audio.tests.signals import SR, chord, click_track, sine, to_wav_bytes
+from audio.tests.test_beatgrid import circular_error
 
 ANALYZE = '/api/audio/analyze'
 TRACKS = '/api/audio/tracks'
@@ -270,6 +271,27 @@ class TrackFileViewTests(TempMediaMixin, TestCase):
         track = self.crear_con_audio()
 
         self.assertEqual(self.client.post(f'{TRACKS}/{track.id}/file').status_code, 405)
+
+    def test_el_detalle_incluye_la_rejilla_de_pulsos(self):
+        sin_rejilla = Track.objects.create(
+            title='x', duration=1.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+        con_rejilla = Track.objects.create(
+            title='y', duration=300.0, bpm=110.0, key='C major', camelot='8B', energy=0.5,
+            grid_offset=0.0239, grid_downbeat=0.5844, grid_confidence=0.585)
+
+        self.assertIsNone(self.client.get(f'{TRACKS}/{sin_rejilla.id}').json()['grid'])
+        self.assertEqual(self.client.get(f'{TRACKS}/{con_rejilla.id}').json()['grid'],
+                         {'offset': 0.0239, 'downbeat': 0.5844, 'confidence': 0.585})
+
+    def test_subir_una_pista_con_ritmo_guarda_su_rejilla(self):
+        response = self.client.post(ANALYZE, {'file': wav(click_track(110.0, 30, first_beat=0.2))})
+
+        cuerpo = response.json()
+        self.assertEqual(response.status_code, 201)
+        # Con solo 30 s de audio el tempo se afina a unas centesimas: en una cancion entera, a menos.
+        self.assertAlmostEqual(cuerpo['bpm'], 110.0, delta=0.06)
+        self.assertIsNotNone(cuerpo['grid'])
+        self.assertLess(abs(circular_error(cuerpo['grid']['offset'], 0.2, 60 / 110)), 0.006)
 
     def test_el_detalle_incluye_el_estado_del_analisis_de_voz(self):
         sin_analizar = Track.objects.create(

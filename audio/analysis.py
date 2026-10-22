@@ -152,21 +152,26 @@ def _first_onset_time(y: np.ndarray, sr: int) -> float:
     return max(float(onsets[0]) - padding / sr, 0.0)
 
 
-def find_cue_points(y: np.ndarray, sr: int, bpm: float, beats_per_bar: int = 4) -> list[float]:
+def find_cue_points(y: np.ndarray, sr: int, bpm: float, beats_per_bar: int = 4,
+                    first_beat: float | None = None) -> list[float]:
     """Puntos de mezcla en segundos, alineados a la rejilla de compases del tempo dado.
 
     Incluye el inicio de la musica, los cambios fuertes de energia (caidas, subidas, breakdowns) y el
     punto de salida, OUTRO_BARS compases antes del final.
+
+    `first_beat` es el segundo en que empieza la rejilla de compases (el primer tiempo de un compas); si no se
+    indica, es el primer ataque que se detecte.
     """
     validate_signal(y, sr)
-    first_beat = _first_onset_time(y, sr)
+    if first_beat is None:
+        first_beat = _first_onset_time(y, sr)
 
     bar_seconds = beats_per_bar * 60.0 / bpm
     duration = len(y) / sr
     # Pequena tolerancia: el retraso de deteccion del primer ataque no debe hacer perder el ultimo compas.
     bar_count = int((duration - first_beat) / bar_seconds + BAR_COUNT_TOLERANCE)
     if bar_count < 1:
-        return [round(first_beat, 3)]
+        return [max(round(first_beat, 3), 0.0)]
 
     # Las ventanas se adelantan un poco: el ataque que marca la barra del compas se detecta con unos
     # milisegundos de retraso y, sin este margen, caeria al final del compas anterior.
@@ -193,4 +198,5 @@ def find_cue_points(y: np.ndarray, sr: int, bpm: float, beats_per_bar: int = 4) 
     if outro_bar > cue_bars[-1] and outro_bar - cue_bars[-1] >= MIN_CUE_GAP_BARS:
         cue_bars.append(outro_bar)
 
-    return [round(first_beat + bar * bar_seconds, 3) for bar in cue_bars]
+    # Con la rejilla desplazada unos ms hacia atras el primer compas cae en negativo: el primer cue es el inicio.
+    return [max(round(first_beat + bar * bar_seconds, 3), 0.0) for bar in cue_bars]

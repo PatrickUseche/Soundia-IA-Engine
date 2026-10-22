@@ -24,6 +24,18 @@ class TrackModelTests(TestCase):
         self.assertEqual(track.vocal_status, Track.VOCALS_NONE)
         self.assertIsNone(track.vocal_last_end)
 
+    def test_una_pista_nueva_no_tiene_rejilla_hasta_que_se_analiza(self):
+        crear_track().save()
+
+        track = Track.objects.get()
+        self.assertEqual((track.grid_offset, track.grid_downbeat, track.grid_confidence), (None, None, None))
+
+    def test_guarda_la_rejilla_de_pulsos(self):
+        crear_track(grid_offset=0.0239, grid_downbeat=0.5844, grid_confidence=0.585).save()
+
+        track = Track.objects.get()
+        self.assertEqual((track.grid_offset, track.grid_downbeat, track.grid_confidence), (0.0239, 0.5844, 0.585))
+
     def test_guarda_hasta_donde_llega_la_voz(self):
         crear_track(vocal_status=Track.VOCALS_DONE, vocal_last_end=229.7).save()
 

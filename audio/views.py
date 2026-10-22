@@ -22,6 +22,12 @@ AUDIO_CONTENT_TYPES = {
 }
 
 
+def _grid_to_dict(track: Track) -> dict | None:
+    if track.grid_offset is None:
+        return None
+    return {'offset': track.grid_offset, 'downbeat': track.grid_downbeat, 'confidence': track.grid_confidence}
+
+
 def track_to_dict(track: Track) -> dict:
     return {
         'id': track.id,
@@ -34,6 +40,7 @@ def track_to_dict(track: Track) -> dict:
         'cuePoints': track.cue_points,
         'hasAudio': bool(track.audio_file),
         'vocals': {'status': track.vocal_status, 'lastEnd': track.vocal_last_end},
+        'grid': _grid_to_dict(track),
         'createdAt': track.created_at.isoformat(),
     }
 
@@ -67,6 +74,9 @@ def analyze_track(request):
         camelot=analysis.camelot,
         energy=analysis.energy,
         cue_points=analysis.cue_points,
+        grid_offset=analysis.grid_offset,
+        grid_downbeat=analysis.grid_downbeat,
+        grid_confidence=analysis.grid_confidence,
     )
     # El analisis ya leyo el archivo hasta el final: se rebobina para guardarlo completo.
     upload.seek(0)

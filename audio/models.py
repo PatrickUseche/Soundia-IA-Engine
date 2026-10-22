@@ -43,6 +43,17 @@ class Track(models.Model):
         blank=True,
         help_text="Archivo de audio original, para poder reproducir la pista en los decks.",
     )
+    grid_offset = models.FloatField(
+        null=True, blank=True,
+        help_text="Segundo del primer pulso de la rejilla de tempo; vacio si la pista no tiene un ritmo claro.",
+    )
+    grid_downbeat = models.FloatField(
+        null=True, blank=True, help_text="Segundo del primer tiempo del compas (dentro del primer compas).",
+    )
+    grid_confidence = models.FloatField(
+        null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(1)],
+        help_text="Seguridad (0-1) de que grid_downbeat sea de verdad el primer tiempo del compas.",
+    )
     vocal_status = models.CharField(
         max_length=12, choices=VOCAL_STATUS_CHOICES, default=VOCALS_NONE,
         help_text="Estado del analisis de voz del final de la pista.",
