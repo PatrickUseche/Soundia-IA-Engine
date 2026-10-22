@@ -39,7 +39,9 @@ def track_to_dict(track: Track) -> dict:
         'energy': track.energy,
         'cuePoints': track.cue_points,
         'hasAudio': bool(track.audio_file),
-        'vocals': {'status': track.vocal_status, 'lastEnd': track.vocal_last_end},
+        'vocals': {
+            'status': track.vocal_status, 'lastEnd': track.vocal_last_end, 'firstStart': track.vocal_first_start,
+        },
         'grid': _grid_to_dict(track),
         'createdAt': track.created_at.isoformat(),
     }

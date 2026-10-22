@@ -12,19 +12,26 @@ from audio.vocal_analysis import VocalResult
 class VocalWorkerTests(SimpleTestCase):
     def ejecutar(self, resultado=None, error=None):
         salida = StringIO()
-        with mock.patch.object(vocal_worker, 'analyze_last_vocals', return_value=resultado, side_effect=error), \
+        with mock.patch.object(vocal_worker, 'analyze_vocals', return_value=resultado, side_effect=error), \
                 mock.patch.object(vocal_worker.sys, 'stdout', salida):
             codigo = vocal_worker.main(['vocal_worker', '/audio/tema.mp3', '200.0'])
         return codigo, salida.getvalue()
 
     def test_imprime_el_resultado_como_json_y_sale_bien(self):
-        codigo, salida = self.ejecutar(resultado=VocalResult(window_start=140.0, last_end=188.5))
+        codigo, salida = self.ejecutar(resultado=VocalResult(window_start=140.0, last_end=188.5, first_start=12.0))
 
         self.assertEqual(codigo, 0)
-        self.assertEqual(json.loads(salida.strip().splitlines()[-1]), {'window_start': 140.0, 'last_end': 188.5})
+        self.assertEqual(
+            json.loads(salida.strip().splitlines()[-1]),
+            {'window_start': 140.0, 'last_end': 188.5, 'first_start': 12.0})
+
+    def test_sin_analisis_del_inicio_imprime_first_start_vacio(self):
+        _, salida = self.ejecutar(resultado=VocalResult(window_start=140.0, last_end=188.5))
+
+        self.assertIsNone(json.loads(salida.strip().splitlines()[-1])['first_start'])
 
     def test_pasa_la_ruta_y_la_duracion_al_analisis(self):
-        with mock.patch.object(vocal_worker, 'analyze_last_vocals', return_value=VocalResult(0.0, None)) as analisis, \
+        with mock.patch.object(vocal_worker, 'analyze_vocals', return_value=VocalResult(0.0, None)) as analisis, \
                 mock.patch.object(vocal_worker.sys, 'stdout', StringIO()):
             vocal_worker.main(['vocal_worker', '/audio/tema.mp3', '200.0'])
 

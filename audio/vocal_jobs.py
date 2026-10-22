@@ -56,7 +56,9 @@ def analyze_in_subprocess(source: str, duration: float) -> VocalResult:
             data = json.loads(line)
         except json.JSONDecodeError:
             continue
-        return VocalResult(window_start=data['window_start'], last_end=data['last_end'])
+        return VocalResult(
+            window_start=data['window_start'], last_end=data['last_end'], first_start=data.get('first_start'),
+        )
     raise RuntimeError('El analisis de voz no devolvio ningun resultado')
 
 
@@ -68,25 +70,26 @@ def run_vocal_analysis(track_id: int, analyzer=None) -> None:
     except Track.DoesNotExist:
         return
     if not track.audio_file:
-        _save(track, Track.VOCALS_FAILED, None)
+        _save(track, Track.VOCALS_FAILED, None, None)
         return
 
-    _save(track, Track.VOCALS_RUNNING, track.vocal_last_end)
+    _save(track, Track.VOCALS_RUNNING, track.vocal_last_end, track.vocal_first_start)
     try:
         result = analyzer(track.audio_file.path, track.duration)
     except VocalSeparationUnavailable:
-        _save(track, Track.VOCALS_UNAVAILABLE, None)
+        _save(track, Track.VOCALS_UNAVAILABLE, None, None)
     except Exception:  # noqa: BLE001 - un fallo del modelo o del audio no debe tumbar el hilo
         logger.exception('Fallo el analisis de voz de la pista %s', track_id)
-        _save(track, Track.VOCALS_FAILED, None)
+        _save(track, Track.VOCALS_FAILED, None, None)
     else:
-        _save(track, Track.VOCALS_DONE, result.last_end)
+        _save(track, Track.VOCALS_DONE, result.last_end, result.first_start)
 
 
-def _save(track: Track, status: str, last_end: float | None) -> None:
+def _save(track: Track, status: str, last_end: float | None, first_start: float | None) -> None:
     track.vocal_status = status
     track.vocal_last_end = last_end
-    track.save(update_fields=['vocal_status', 'vocal_last_end'])
+    track.vocal_first_start = first_start
+    track.save(update_fields=['vocal_status', 'vocal_last_end', 'vocal_first_start'])
 
 
 def request_vocal_analysis(track: Track) -> str:
@@ -100,10 +103,10 @@ def request_vocal_analysis(track: Track) -> str:
     if track.vocal_status in (Track.VOCALS_PENDING, Track.VOCALS_RUNNING) and track.id in _active:
         return track.vocal_status
     if not is_available():
-        _save(track, Track.VOCALS_UNAVAILABLE, None)
+        _save(track, Track.VOCALS_UNAVAILABLE, None, None)
         return track.vocal_status
 
-    _save(track, Track.VOCALS_PENDING, track.vocal_last_end)
+    _save(track, Track.VOCALS_PENDING, track.vocal_last_end, track.vocal_first_start)
     _submit(track.id)
     return track.vocal_status
 
