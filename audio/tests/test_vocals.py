@@ -1,7 +1,7 @@
 import numpy as np
 from django.test import SimpleTestCase
 
-from audio.vocals import FRAME_SECONDS, frame_rms, last_vocal_end, vocal_segments
+from audio.vocals import FRAME_SECONDS, first_vocal_start, frame_rms, last_vocal_end, vocal_segments
 
 
 def curva(*tramos):
@@ -70,3 +70,22 @@ class LastVocalEndTests(SimpleTestCase):
 
     def test_sin_voz_en_la_ventana_devuelve_none(self):
         self.assertIsNone(last_vocal_end(curva((30, 0.0)), window_start=100.0))
+
+
+class FirstVocalStartTests(SimpleTestCase):
+    def test_es_donde_empieza_la_primera_frase(self):
+        rms = curva((10, 0.0), (20, 0.5), (5, 0.0), (10, 0.5))
+
+        self.assertEqual(first_vocal_start(rms), 10.0)
+
+    def test_una_pista_que_empieza_cantando_da_cero(self):
+        self.assertEqual(first_vocal_start(curva((15, 0.5), (10, 0.0))), 0.0)
+
+    def test_sin_voz_es_none(self):
+        self.assertIsNone(first_vocal_start(curva((30, 0.0))))
+        self.assertIsNone(first_vocal_start(np.array([])))
+
+    def test_ignora_un_resto_corto_de_la_separacion(self):
+        rms = curva((5, 0.0), (0.5, 0.5), (4.5, 0.0), (20, 0.5))
+
+        self.assertEqual(first_vocal_start(rms), 10.0)  # el soplido de 0.5 s no cuenta como frase

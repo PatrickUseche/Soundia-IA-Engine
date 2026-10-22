@@ -36,6 +36,14 @@ class AnalyzeInSubprocessTests(SimpleTestCase):
 
         self.assertEqual(resultado, VocalResult(window_start=140.0, last_end=188.5))
 
+    def test_lee_tambien_donde_empieza_la_voz_y_funciona_sin_ese_dato(self):
+        completo, _ = self.ejecutar(
+            stdout=json.dumps({'window_start': 140.0, 'last_end': 188.5, 'first_start': 12.0}))
+        antiguo, _ = self.ejecutar(stdout=json.dumps({'window_start': 140.0, 'last_end': 188.5}))
+
+        self.assertEqual(completo.first_start, 12.0)
+        self.assertIsNone(antiguo.first_start)
+
     def test_una_pista_sin_voz_devuelve_none(self):
         resultado, _ = self.ejecutar(stdout=json.dumps({'window_start': 140.0, 'last_end': None}))
 
@@ -75,6 +83,26 @@ class RunVocalAnalysisTests(TempMediaMixin, TestCase):
         pista.refresh_from_db()
         self.assertEqual((pista.vocal_status, pista.vocal_last_end), ('done', 188.5))
         analizador.assert_called_once_with(pista.audio_file.path, 200.0)
+
+    def test_guarda_tambien_donde_empieza_la_voz(self):
+        pista = crear_pista()
+
+        vocal_jobs.run_vocal_analysis(
+            pista.id, analyzer=lambda *args: VocalResult(window_start=140.0, last_end=188.5, first_start=12.5))
+
+        pista.refresh_from_db()
+        self.assertEqual((pista.vocal_last_end, pista.vocal_first_start), (188.5, 12.5))
+
+    def test_si_el_analisis_falla_se_borran_el_final_y_el_inicio(self):
+        pista = crear_pista(vocal_last_end=150.0, vocal_first_start=10.0)
+
+        def analizador(*args):
+            raise RuntimeError('boom')
+
+        vocal_jobs.run_vocal_analysis(pista.id, analyzer=analizador)
+
+        pista.refresh_from_db()
+        self.assertEqual((pista.vocal_status, pista.vocal_last_end, pista.vocal_first_start), ('failed', None, None))
 
     def test_sin_voz_al_final_queda_analizada_con_el_final_vacio(self):
         pista = crear_pista(vocal_last_end=150.0)

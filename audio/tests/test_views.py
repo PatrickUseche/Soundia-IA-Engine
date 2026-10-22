@@ -298,12 +298,12 @@ class TrackFileViewTests(TempMediaMixin, TestCase):
             title='x', duration=1.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
         analizada = Track.objects.create(
             title='y', duration=300.0, bpm=128.0, key='C major', camelot='8B', energy=0.5,
-            vocal_status=Track.VOCALS_DONE, vocal_last_end=290.5)
+            vocal_status=Track.VOCALS_DONE, vocal_last_end=290.5, vocal_first_start=14.0)
 
         self.assertEqual(self.client.get(f'{TRACKS}/{sin_analizar.id}').json()['vocals'],
-                         {'status': 'none', 'lastEnd': None})
+                         {'status': 'none', 'lastEnd': None, 'firstStart': None})
         self.assertEqual(self.client.get(f'{TRACKS}/{analizada.id}').json()['vocals'],
-                         {'status': 'done', 'lastEnd': 290.5})
+                         {'status': 'done', 'lastEnd': 290.5, 'firstStart': 14.0})
 
     def test_el_detalle_indica_si_la_pista_tiene_audio(self):
         con_audio = self.crear_con_audio()

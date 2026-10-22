@@ -8,7 +8,7 @@ import json
 import sys
 
 from .separator import VocalSeparationUnavailable
-from .vocal_analysis import analyze_last_vocals
+from .vocal_analysis import analyze_vocals
 
 # Codigo de salida cuando el modelo de separacion no esta instalado (distinto de un fallo cualquiera).
 UNAVAILABLE_EXIT_CODE = 3
@@ -19,10 +19,12 @@ def main(argv: list[str]) -> int:
         print('Uso: python -m audio.vocal_worker <audio> <duracion>', file=sys.stderr)
         return 2
     try:
-        result = analyze_last_vocals(argv[1], float(argv[2]))
+        result = analyze_vocals(argv[1], float(argv[2]))
     except VocalSeparationUnavailable:
         return UNAVAILABLE_EXIT_CODE
-    print(json.dumps({'window_start': result.window_start, 'last_end': result.last_end}))
+    print(json.dumps({
+        'window_start': result.window_start, 'last_end': result.last_end, 'first_start': result.first_start,
+    }))
     return 0
 
 

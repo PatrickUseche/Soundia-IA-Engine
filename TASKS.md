@@ -47,8 +47,8 @@ Al terminarla se marca `[x]` en ese mismo commit.
 ## Fase 6 — Pendiente
 
 - [x] test(audio): investigar un mejor detector del primer tiempo (downbeat) [6.1] (sin cambio de algoritmo: la novedad de textura por posición del compás da ~25 % en cada una de las 4 posiciones en dos pistas reales, así que no discrimina, y sin una referencia de oído no se puede validar otra heurística; con confianza < 0,2 el Auto-DJ ya alinea por pulso y no por compás)
-- [ ] feat(audio): analizar también el inicio de la pista (voz y punto de entrada) para elegir dónde entra la pista B [6.2]
-- [ ] feat(mix): que el estilo blend (tempos igualados) use la información de voz [6.3]
+- [x] feat(audio): analizar también el inicio de la pista (dónde empieza la voz) y acortar el solape para no pisar la voz de la pista B [6.2] (apagado por defecto, `VOCAL_ANALYSIS_START=on`: su memoria no se pudo medir en el equipo de desarrollo y el sistema se quedó sin RAM; el punto de entrada sigue siendo el primer cue; ver [6.3])
+- [ ] feat(mix): que el estilo blend (tempos igualados) use también la voz de la pista que sale al elegir el punto de salida (con [6.2] ya usa la de la que entra) [6.3]
 - [ ] feat(audio): soportar tempo variable y analizar más de los primeros 10 minutos [6.4]
 - [x] feat(ml): historial de versiones de los pesos con vuelta atrás, y una forma de reiniciar lo aprendido del momento de mezcla [6.5] (comando `manage.py learning`)
 - [ ] test(audio): validar el análisis y el aprendizaje con música y valoraciones reales, no sintéticas [6.6]

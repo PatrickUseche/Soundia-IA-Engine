@@ -1,8 +1,9 @@
-"""Donde hay voz en una pista, para no cortar la letra al mezclar.
+"""Donde hay voz en una pista, para no cortar la letra al mezclar ni pisar la de otra pista.
 
-Solo se mira el final de la pista (la ventana en la que sale la mezcla): se separa la voz con un modelo de
-IA (ver `separator.py`) y aqui se convierte la pista de voz en "hasta donde llega la ultima frase". Estas
-funciones trabajan con la senal ya separada, asi se prueban con senales sinteticas.
+Solo se miran los extremos de la pista: el final (la ventana en la que sale la mezcla) y el inicio (donde entra la
+siguiente). Se separa la voz con un modelo de IA (ver `separator.py`) y aqui se convierte la pista de voz en "hasta
+donde llega la ultima frase" y "donde empieza la primera". Estas funciones trabajan con la senal ya separada, asi
+se prueban con senales sinteticas.
 """
 import numpy as np
 
@@ -10,6 +11,8 @@ import numpy as np
 FRAME_SECONDS = 0.5
 # Segundos del final de la pista que se analizan.
 VOCAL_WINDOW_SECONDS = 60.0
+# Segundos del inicio de la pista que se analizan.
+VOCAL_START_WINDOW_SECONDS = 60.0
 # Un frame tiene voz si supera esta fraccion de la energia de la voz en la ventana (percentil 90)...
 RELATIVE_THRESHOLD = 0.15
 # ...y, en cualquier caso, este minimo absoluto: la separacion deja restos casi nulos donde no hay voz.
@@ -68,3 +71,14 @@ def last_vocal_end(rms: np.ndarray, window_start: float) -> float | None:
     if not segments:
         return None
     return round(window_start + segments[-1][1], 3)
+
+
+def first_vocal_start(rms: np.ndarray) -> float | None:
+    """Segundo de la pista en que empieza la primera frase cantada, o None si no hay voz en la ventana.
+
+    La ventana del inicio empieza en el segundo 0 de la pista, asi que el resultado no necesita desplazamiento.
+    """
+    segments = vocal_segments(rms)
+    if not segments:
+        return None
+    return round(segments[0][0], 3)

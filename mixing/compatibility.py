@@ -45,13 +45,14 @@ class TrackInfo:
     duration: float = 0.0
     cue_points: list[float] = field(default_factory=list)
     vocal_last_end: float | None = None  # segundo en que acaba la ultima frase cantada; None si no se sabe
+    vocal_first_start: float | None = None  # segundo en que empieza la primera frase cantada; None si no se sabe
 
     @classmethod
     def from_model(cls, track) -> 'TrackInfo':
         return cls(
             id=track.id, title=track.title, bpm=track.bpm, camelot=track.camelot,
             energy=track.energy, duration=track.duration, cue_points=list(track.cue_points),
-            vocal_last_end=track.vocal_last_end,
+            vocal_last_end=track.vocal_last_end, vocal_first_start=track.vocal_first_start,
         )
 
 

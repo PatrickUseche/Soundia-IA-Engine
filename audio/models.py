@@ -62,6 +62,11 @@ class Track(models.Model):
         null=True, blank=True,
         help_text="Segundo en que acaba la ultima frase cantada; vacio si no se analizo o no hay voz al final.",
     )
+    vocal_first_start = models.FloatField(
+        null=True, blank=True,
+        help_text="Segundo en que empieza la primera frase cantada (solo se mira el inicio); vacio si no se "
+                  "analizo o no hay voz al principio.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

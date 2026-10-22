@@ -12,6 +12,7 @@ from mixing.transition import (
     STYLE_BLEND,
     STYLE_FADE,
     FADE_END_MARGIN_SECONDS,
+    fit_bars_to_intro,
     VOCAL_TAIL_GAP_SECONDS,
     choose_fade_out,
     choose_mix_out,
@@ -21,10 +22,11 @@ from mixing.transition import (
 )
 
 
-def track(id=1, bpm=128.0, camelot='8B', energy=0.6, duration=300.0, cues=None, vocal_last_end=None):
+def track(id=1, bpm=128.0, camelot='8B', energy=0.6, duration=300.0, cues=None, vocal_last_end=None,
+          vocal_first_start=None):
     return TrackInfo(id=id, title=f'pista {id}', bpm=bpm, camelot=camelot, energy=energy,
                      duration=duration, cue_points=[0.0, 60.0, 270.0] if cues is None else cues,
-                     vocal_last_end=vocal_last_end)
+                     vocal_last_end=vocal_last_end, vocal_first_start=vocal_first_start)
 
 
 class EqAutomationTests(SimpleTestCase):
@@ -249,3 +251,67 @@ class PlanTransitionTests(SimpleTestCase):
 
         self.assertGreater(lenta.seconds, rapida.seconds)
         self.assertTrue(math.isclose(lenta.seconds, 16 * 4 * 60 / 100, rel_tol=1e-3))
+
+
+class FitBarsToIntroTests(SimpleTestCase):
+    # A 120 BPM un compas dura 2 s: 16 compases = 32 s, 8 = 16 s, 4 = 8 s.
+    BAR = 2.0
+
+    def test_si_no_se_sabe_donde_empieza_la_voz_no_cambia_nada(self):
+        self.assertEqual(fit_bars_to_intro(track(), BARS_SMOOTH, self.BAR, 0.0), BARS_SMOOTH)
+
+    def test_si_la_intro_es_larga_se_conserva_la_mezcla_pedida(self):
+        entrante = track(vocal_first_start=40.0)
+
+        self.assertEqual(fit_bars_to_intro(entrante, BARS_SMOOTH, self.BAR, 0.0), BARS_SMOOTH)
+
+    def test_si_la_voz_entra_antes_de_que_acabe_el_solape_se_acorta_a_lo_que_cabe(self):
+        entrante = track(vocal_first_start=20.0)  # caben 16 s: 8 compases
+
+        self.assertEqual(fit_bars_to_intro(entrante, BARS_SMOOTH, self.BAR, 0.0), BARS_NORMAL)
+
+    def test_se_cuenta_desde_el_punto_de_entrada(self):
+        entrante = track(vocal_first_start=20.0)
+
+        # Entrando en el segundo 10 solo quedan 10 s hasta la voz: 4 compases (8 s).
+        self.assertEqual(fit_bars_to_intro(entrante, BARS_SMOOTH, self.BAR, 10.0), BARS_QUICK)
+
+    def test_si_ni_la_mezcla_mas_corta_cabe_se_queda_con_la_mas_corta(self):
+        entrante = track(vocal_first_start=3.0)
+
+        self.assertEqual(fit_bars_to_intro(entrante, BARS_SMOOTH, self.BAR, 0.0), BARS_QUICK)
+
+    def test_una_voz_que_ya_suena_en_el_punto_de_entrada_deja_la_mas_corta(self):
+        entrante = track(vocal_first_start=0.0)
+
+        self.assertEqual(fit_bars_to_intro(entrante, BARS_NORMAL, self.BAR, 0.4), BARS_QUICK)
+
+    def test_nunca_alarga_la_mezcla_pedida(self):
+        entrante = track(vocal_first_start=200.0)
+
+        self.assertEqual(fit_bars_to_intro(entrante, BARS_QUICK, self.BAR, 0.0), BARS_QUICK)
+        self.assertEqual(fit_bars_to_intro(entrante, BARS_NORMAL, self.BAR, 0.0), BARS_NORMAL)
+
+
+class PlanTransitionConVozDelInicioTests(SimpleTestCase):
+    def test_la_mezcla_larga_se_acorta_para_no_pisar_la_voz_de_la_pista_que_entra(self):
+        saliente = track(1, bpm=120.0, camelot='8B')
+        con_voz_pronto = track(2, bpm=120.0, camelot='8B', cues=[0.0, 60.0], vocal_first_start=20.0)
+        sin_dato = track(3, bpm=120.0, camelot='8B', cues=[0.0, 60.0])
+
+        acortada = plan_transition(saliente, con_voz_pronto)
+        original = plan_transition(saliente, sin_dato)
+
+        self.assertEqual(original.bars, BARS_SMOOTH)
+        self.assertEqual(acortada.bars, BARS_NORMAL)
+        self.assertEqual(acortada.seconds, 16.0)
+        self.assertEqual(len(acortada.automation), BARS_NORMAL * 4 + 1)  # una automatizacion por pulso
+
+    def test_un_fundido_no_se_toca(self):
+        saliente = track(1, bpm=120.0, camelot='8B')
+        entrante = track(2, bpm=170.0, camelot='8B', cues=[0.0, 60.0], vocal_first_start=1.0)
+
+        plan = plan_transition(saliente, entrante)
+
+        self.assertEqual(plan.style, STYLE_FADE)
+        self.assertEqual(plan.bars, BARS_FADE)
