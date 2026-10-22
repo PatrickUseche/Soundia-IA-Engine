@@ -36,7 +36,7 @@ Al terminarla se marca `[x]` en ese mismo commit.
 - [x] feat(audio): rejilla de pulsos (tempo afinado, fase y primer tiempo del compás) para mezclar a compás [4.7]
 - [ ] feat(ml): recomendador de pistas con embeddings (pendiente: no hay datos suficientes para entrenarlos; primero hace falta acumular valoraciones y escuchas) [4.2]
 - [x] feat(ml): puntuación de compatibilidad con pesos aprendidos por regresión logística, que reemplazan a los fijos 45/40/15 [4.3]
-- [x] feat(ml): evaluación (validación cruzada) y versionado de los pesos aprendidos [4.4] (sin historial ni vuelta atrás: solo se rechazan los pesos peores)
+- [x] feat(ml): evaluación (validación cruzada) y versionado de los pesos aprendidos [4.4] (el historial y la vuelta atrás llegaron después, ver [6.5])
 
 ## Fase 5 — Despliegue
 
@@ -50,6 +50,6 @@ Al terminarla se marca `[x]` en ese mismo commit.
 - [ ] feat(audio): analizar también el inicio de la pista (voz y punto de entrada) para elegir dónde entra la pista B [6.2]
 - [ ] feat(mix): que el estilo blend (tempos igualados) use la información de voz [6.3]
 - [ ] feat(audio): soportar tempo variable y analizar más de los primeros 10 minutos [6.4]
-- [ ] feat(ml): historial de versiones de los pesos con vuelta atrás, y una forma de reiniciar lo aprendido del momento de mezcla [6.5]
+- [x] feat(ml): historial de versiones de los pesos con vuelta atrás, y una forma de reiniciar lo aprendido del momento de mezcla [6.5] (comando `manage.py learning`)
 - [ ] test(audio): validar el análisis y el aprendizaje con música y valoraciones reales, no sintéticas [6.6]
 - [ ] feat(audio): endpoint para fijar a mano el primer tiempo de una pista (PATCH de la rejilla, con confianza 1 y marca de que es manual), para cuando la detección no se puede fiar [6.7]
