@@ -1,8 +1,10 @@
+from unittest import mock
+
 from django.test import TestCase
 
 from audio.models import Track
 from mixing.compatibility import DEFAULT_WEIGHTS
-from mixing.learning import MIN_SAMPLES
+from mixing.learning import MIN_SAMPLES, Evaluation
 from mixing.models import LearnedWeights, TransitionFeedback
 from mixing.weights import current_weights, feedback_count, record_feedback
 
@@ -114,3 +116,66 @@ class RecordFeedbackTests(TestCase):
         self.compatible.delete()
 
         self.assertEqual(TransitionFeedback.objects.count(), 0)
+
+
+class EvaluacionYVersionTests(TestCase):
+    def setUp(self):
+        self.base = crear_track('base', camelot='8B')
+        self.compatible = crear_track('compatible', camelot='8B')
+        self.chocante = crear_track('chocante', camelot='3A')
+
+    def valorar(self, veces):
+        for _ in range(veces):
+            record_feedback(self.base, self.compatible, liked=True)
+            record_feedback(self.base, self.chocante, liked=False)
+
+    def test_guarda_el_acierto_medido_y_el_de_los_pesos_por_defecto(self):
+        self.valorar(MIN_SAMPLES)
+
+        aprendidos = LearnedWeights.objects.get()
+        self.assertIsNotNone(aprendidos.accuracy)
+        self.assertIsNotNone(aprendidos.default_accuracy)
+        self.assertGreaterEqual(aprendidos.accuracy, aprendidos.default_accuracy)
+
+    def test_la_version_sube_con_cada_reentrenamiento(self):
+        self.valorar(MIN_SAMPLES)
+        primera = LearnedWeights.objects.get().version
+
+        record_feedback(self.base, self.compatible, liked=True)
+
+        self.assertEqual(LearnedWeights.objects.get().version, primera + 1)
+
+    def test_si_no_se_pudo_evaluar_igual_se_guardan_los_pesos_sin_acierto(self):
+        with mock.patch('mixing.weights.evaluate', return_value=None):
+            self.valorar(MIN_SAMPLES)
+
+        aprendidos = LearnedWeights.objects.get()
+        self.assertIsNone(aprendidos.accuracy)
+        self.assertIsNone(aprendidos.default_accuracy)
+
+    def test_si_los_pesos_nuevos_aciertan_menos_que_los_de_siempre_no_se_adoptan(self):
+        peor = Evaluation(learned=0.4, default=0.6, majority=0.5, folds=5, samples=20)
+        with mock.patch('mixing.weights.evaluate', return_value=peor):
+            self.valorar(MIN_SAMPLES)
+
+        self.assertEqual(LearnedWeights.objects.count(), 0)
+        self.assertEqual(current_weights(), DEFAULT_WEIGHTS)
+
+    def test_si_los_nuevos_empatan_con_los_de_siempre_si_se_adoptan(self):
+        empate = Evaluation(learned=0.6, default=0.6, majority=0.5, folds=5, samples=20)
+        with mock.patch('mixing.weights.evaluate', return_value=empate):
+            self.valorar(MIN_SAMPLES)
+
+        self.assertEqual(LearnedWeights.objects.count(), 1)
+
+    def test_rechazar_unos_pesos_nuevos_conserva_los_aprendidos_antes(self):
+        self.valorar(MIN_SAMPLES)
+        anteriores = LearnedWeights.objects.get()
+        peor = Evaluation(learned=0.4, default=0.6, majority=0.5, folds=5, samples=20)
+
+        with mock.patch('mixing.weights.evaluate', return_value=peor):
+            record_feedback(self.base, self.compatible, liked=True)
+
+        actuales = LearnedWeights.objects.get()
+        self.assertEqual(actuales.pk, anteriores.pk)
+        self.assertEqual(actuales.version, anteriores.version)

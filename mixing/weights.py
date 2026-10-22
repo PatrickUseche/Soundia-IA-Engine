@@ -2,7 +2,7 @@
 from audio.models import Track
 
 from .compatibility import DEFAULT_WEIGHTS, ScoringWeights, TrackInfo, compatibility
-from .learning import FeedbackSample, has_enough_signal, train_weights
+from .learning import FeedbackSample, evaluate, has_enough_signal, train_weights
 from .models import LearnedWeights, TransitionFeedback
 
 # Solo las valoraciones mas recientes entran al entrenamiento: asi el gusto del DJ puede ir cambiando.
@@ -37,9 +37,19 @@ def record_feedback(from_track: Track, to_track: Track, liked: bool) -> ScoringW
         return current_weights()
 
     weights = train_weights(samples)
+    evaluation = evaluate(samples)
+    # Si con valoraciones apartadas los pesos nuevos aciertan menos que los de siempre, no se adoptan: mas vale
+    # seguir con los vigentes que sustituirlos por algo que, con estos datos, predice peor.
+    if evaluation is not None and evaluation.learned < evaluation.default:
+        return current_weights()
+
+    previous = LearnedWeights.objects.first()
     LearnedWeights.objects.all().delete()
     LearnedWeights.objects.create(
         tempo=weights.tempo, harmonic=weights.harmonic, energy=weights.energy, samples=len(samples),
+        version=previous.version + 1 if previous else 1,
+        accuracy=evaluation.learned if evaluation else None,
+        default_accuracy=evaluation.default if evaluation else None,
     )
     return weights
 
