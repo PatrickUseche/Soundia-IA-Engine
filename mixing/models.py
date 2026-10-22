@@ -32,6 +32,15 @@ class LearnedWeights(models.Model):
     harmonic = models.FloatField(validators=_UNIT)
     energy = models.FloatField(validators=_UNIT)
     samples = models.PositiveIntegerField(help_text="Valoraciones con las que se entreno.")
+    version = models.PositiveIntegerField(default=1, help_text="Cuantas veces se han reentrenado los pesos.")
+    accuracy = models.FloatField(
+        null=True, blank=True, validators=_UNIT,
+        help_text="Acierto con valoraciones apartadas del entrenamiento (validacion cruzada); vacio si no se pudo medir.",
+    )
+    default_accuracy = models.FloatField(
+        null=True, blank=True, validators=_UNIT,
+        help_text="Acierto de los pesos por defecto con esas mismas valoraciones, para comparar.",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
