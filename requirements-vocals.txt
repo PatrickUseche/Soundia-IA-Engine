@@ -1,0 +1,5 @@
+# Opcional: deteccion de voz para no cortar la letra al mezclar (ver README, "Deteccion de voz").
+# Son ~750 MB y el modelo (~80 MB) se descarga la primera vez que se usa. Sin esto el motor funciona igual.
+torch>=2.2
+torchaudio>=2.2
+demucs>=4.1
