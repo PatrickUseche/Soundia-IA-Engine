@@ -11,12 +11,15 @@ from .tempo import TempoMatch
 BEATS_PER_BAR = 4
 
 STYLE_BLEND = 'blend'  # las dos pistas suenan a la vez mientras se hace la transicion
-STYLE_CUT = 'cut'  # corte directo en el compas: los tempos no se pueden igualar
+# Fundido corto: los tempos no se pueden igualar, asi que no se fuerza el pitch; la pista entrante
+# suena a su ritmo y se cruza con la saliente solo unos compases para que no sea un corte seco.
+STYLE_FADE = 'fade'
 
 # Compases de mezcla segun lo bien que encajan las pistas.
 BARS_SMOOTH = 16  # tempo casi igual y tonalidades vecinas
 BARS_NORMAL = 8  # algo de ajuste de tempo o tonalidades a dos o tres pasos
 BARS_QUICK = 4  # tonalidades que chocan: se solapan lo minimo
+BARS_FADE = 2  # tempos que no se igualan: el solape mas corto posible
 
 # Hasta este ajuste de pitch (4 %) la mezcla larga suena natural.
 SMOOTH_PITCH_LIMIT = 0.04
@@ -80,7 +83,7 @@ def eq_automation(steps: int) -> list[AutomationPoint]:
 
 def choose_style_and_bars(match: TempoMatch, harmonic_steps: int) -> tuple[str, int]:
     if not match.feasible:
-        return STYLE_CUT, 0
+        return STYLE_FADE, BARS_FADE
     if harmonic_steps >= 4:
         return STYLE_BLEND, BARS_QUICK
     if harmonic_steps <= 1 and match.adjustment <= SMOOTH_PITCH_LIMIT:
@@ -111,6 +114,6 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
         mix_in_at=b.cue_points[0] if b.cue_points else 0.0,
         tempo_match=match,
         compatibility=result,
-        # Una automatizacion por pulso; el corte no tiene automatizacion.
-        automation=eq_automation(max(bars * BEATS_PER_BAR, 1)) if style == STYLE_BLEND else [],
+        # Una automatizacion por pulso.
+        automation=eq_automation(bars * BEATS_PER_BAR),
     )

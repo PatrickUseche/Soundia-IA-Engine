@@ -6,10 +6,11 @@ from mixing.compatibility import TrackInfo
 from mixing.tempo import match_tempo
 from mixing.transition import (
     BARS_NORMAL,
+    BARS_FADE,
     BARS_QUICK,
     BARS_SMOOTH,
     STYLE_BLEND,
-    STYLE_CUT,
+    STYLE_FADE,
     choose_mix_out,
     choose_style_and_bars,
     eq_automation,
@@ -101,11 +102,11 @@ class ChooseStyleTests(SimpleTestCase):
         self.assertEqual(choose_style_and_bars(match_tempo(128, 128), 4), (STYLE_BLEND, BARS_QUICK))
         self.assertEqual(choose_style_and_bars(match_tempo(128, 128), 6), (STYLE_BLEND, BARS_QUICK))
 
-    def test_tempos_imposibles_de_igualar_dan_corte(self):
-        self.assertEqual(choose_style_and_bars(match_tempo(128, 174), 0), (STYLE_CUT, 0))
+    def test_tempos_imposibles_de_igualar_dan_fundido(self):
+        self.assertEqual(choose_style_and_bars(match_tempo(128, 174), 0), (STYLE_FADE, BARS_FADE))
 
-    def test_el_corte_manda_aunque_las_tonalidades_sean_perfectas(self):
-        self.assertEqual(choose_style_and_bars(match_tempo(100, 140), 0), (STYLE_CUT, 0))
+    def test_el_fundido_manda_aunque_las_tonalidades_sean_perfectas(self):
+        self.assertEqual(choose_style_and_bars(match_tempo(100, 140), 0), (STYLE_FADE, BARS_FADE))
 
 
 class ChooseMixOutTests(SimpleTestCase):
@@ -160,15 +161,17 @@ class PlanTransitionTests(SimpleTestCase):
 
         self.assertEqual(plan.mix_in_at, 0.0)
 
-    def test_tempos_imposibles_dan_un_corte_sin_automatizacion(self):
+    def test_tempos_imposibles_dan_un_fundido_corto_con_automatizacion(self):
         plan = plan_transition(track(1, bpm=128), track(2, bpm=174))
 
-        self.assertEqual(plan.style, STYLE_CUT)
-        self.assertEqual(plan.bars, 0)
-        self.assertEqual(plan.seconds, 0.0)
-        self.assertEqual(plan.automation, [])
+        self.assertEqual(plan.style, STYLE_FADE)
+        self.assertEqual(plan.bars, BARS_FADE)
+        self.assertEqual(plan.seconds, 3.75)  # 2 compases a 128 BPM
+        self.assertEqual(len(plan.automation), BARS_FADE * 4 + 1)
+        self.assertEqual(plan.automation[0].gain_a, 1.0)
+        self.assertEqual(plan.automation[-1].gain_b, 1.0)
 
-    def test_el_corte_sale_en_el_ultimo_cue_de_la_pista_a(self):
+    def test_el_fundido_sale_en_el_ultimo_cue_de_la_pista_a(self):
         plan = plan_transition(track(1, bpm=128, duration=300, cues=[0.0, 285.0]), track(2, bpm=174))
 
         self.assertEqual(plan.mix_out_at, 285.0)

@@ -129,13 +129,14 @@ class TransitionViewTests(ViewTestCase):
         self.assertEqual(puntos[-1]['gainB'], 1.0)
         self.assertEqual(set(puntos[0]), {'position', 'gainA', 'gainB', 'lowA', 'lowB', 'midA', 'midB', 'highA', 'highB'})
 
-    def test_tempos_imposibles_devuelven_un_corte_sin_automatizacion(self):
+    def test_tempos_imposibles_devuelven_un_fundido_con_automatizacion(self):
         rapida = crear_track('dnb', bpm=174)
 
         plan = self.post(TRANSITION, {'fromTrackId': self.a.id, 'toTrackId': rapida.id}).json()
 
-        self.assertEqual(plan['style'], 'cut')
-        self.assertEqual(plan['automation'], [])
+        self.assertEqual(plan['style'], 'fade')
+        self.assertEqual(plan['bars'], 2)
+        self.assertEqual(len(plan['automation']), 9)
 
     def test_pista_inexistente_devuelve_404(self):
         self.assertEqual(self.post(TRANSITION, {'fromTrackId': self.a.id, 'toTrackId': 9999}).status_code, 404)
