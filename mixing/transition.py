@@ -28,6 +28,8 @@ END_TOLERANCE_SECONDS = 0.5
 # Holgura entre el final del fundido y el final de la pista: el Auto-DJ revisa el punto de salida cada medio
 # segundo y la pista saliente no debe acabarse antes de que termine el cruce.
 FADE_END_MARGIN_SECONDS = 2.0
+# Segundos entre la ultima frase cantada y el inicio del fundido: que no se solape con el eco de la voz.
+VOCAL_TAIL_GAP_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -95,14 +97,23 @@ def choose_style_and_bars(match: TempoMatch, harmonic_steps: int) -> tuple[str, 
     return STYLE_BLEND, BARS_NORMAL
 
 
-def choose_fade_out(track: TrackInfo, transition_seconds: float) -> float:
-    """Punto de salida de un fundido: tan tarde como cabe, para que la cancion suene casi hasta el final.
+def choose_fade_out(track: TrackInfo, transition_seconds: float, advance: float = 0.0) -> float:
+    """Punto de salida de un fundido, sin cortar la letra de la pista que sale.
 
     Los cues marcan cambios de energia (a veces en mitad de un estribillo) y el de salida cae unos compases
     antes del final: empezar ahi apagaria la pista saliente y se perderia el resto de la cancion y su letra.
-    Sin beatmatch no hay una rejilla que respetar, asi que no hace falta alinear el fundido a un cue.
+    Sin beatmatch no hay una rejilla que respetar, asi que no hace falta alinear el fundido a un cue:
+    - si se sabe donde acaba la ultima frase y queda cola instrumental para el fundido, empieza justo despues;
+    - si no, tan tarde como cabe, para que la cancion suene casi hasta el final.
+    `advance` son los segundos que el DJ suele querer mezclar antes y se restan al final.
     """
-    return round(max(track.duration - transition_seconds - FADE_END_MARGIN_SECONDS, 0.0), 3)
+    latest = max(track.duration - transition_seconds - FADE_END_MARGIN_SECONDS, 0.0)
+    start = latest
+    if track.vocal_last_end is not None:
+        after_vocals = track.vocal_last_end + VOCAL_TAIL_GAP_SECONDS
+        if after_vocals <= latest:
+            start = after_vocals
+    return round(max(start - advance, 0.0), 3)
 
 
 def choose_mix_out(track: TrackInfo, transition_seconds: float) -> float:
@@ -128,7 +139,8 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
         style=style,
         bars=bars,
         seconds=seconds,
-        mix_out_at=choose_fade_out(a, seconds + advance) if style == STYLE_FADE else choose_mix_out(a, seconds + advance),
+        mix_out_at=(choose_fade_out(a, seconds, advance) if style == STYLE_FADE
+                    else choose_mix_out(a, seconds + advance)),
         mix_in_at=b.cue_points[0] if b.cue_points else 0.0,
         tempo_match=match,
         compatibility=result,

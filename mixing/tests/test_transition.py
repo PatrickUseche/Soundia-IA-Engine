@@ -12,6 +12,7 @@ from mixing.transition import (
     STYLE_BLEND,
     STYLE_FADE,
     FADE_END_MARGIN_SECONDS,
+    VOCAL_TAIL_GAP_SECONDS,
     choose_fade_out,
     choose_mix_out,
     choose_style_and_bars,
@@ -20,9 +21,10 @@ from mixing.transition import (
 )
 
 
-def track(id=1, bpm=128.0, camelot='8B', energy=0.6, duration=300.0, cues=None):
+def track(id=1, bpm=128.0, camelot='8B', energy=0.6, duration=300.0, cues=None, vocal_last_end=None):
     return TrackInfo(id=id, title=f'pista {id}', bpm=bpm, camelot=camelot, energy=energy,
-                     duration=duration, cue_points=[0.0, 60.0, 270.0] if cues is None else cues)
+                     duration=duration, cue_points=[0.0, 60.0, 270.0] if cues is None else cues,
+                     vocal_last_end=vocal_last_end)
 
 
 class EqAutomationTests(SimpleTestCase):
@@ -118,6 +120,30 @@ class ChooseFadeOutTests(SimpleTestCase):
     def test_una_pista_mas_corta_que_el_fundido_empieza_en_cero(self):
         self.assertEqual(choose_fade_out(track(duration=4), 5.0), 0.0)
 
+    def test_si_la_voz_acaba_antes_del_final_el_fundido_empieza_justo_despues_de_la_ultima_frase(self):
+        pista = track(duration=300, vocal_last_end=280.0)
+
+        self.assertEqual(choose_fade_out(pista, 5.0), 280.0 + VOCAL_TAIL_GAP_SECONDS)
+
+    def test_si_la_voz_llega_hasta_el_final_no_hay_cola_instrumental_y_se_va_al_final(self):
+        pista = track(duration=300, vocal_last_end=298.0)
+
+        self.assertEqual(choose_fade_out(pista, 5.0), 300 - 5.0 - FADE_END_MARGIN_SECONDS)
+
+    def test_nunca_empieza_despues_del_ultimo_punto_en_que_cabe_el_fundido(self):
+        pista = track(duration=300, vocal_last_end=293.0)  # el fundido empezaria en 294, pero el ultimo punto que cabe es 293
+
+        self.assertEqual(choose_fade_out(pista, 5.0), 300 - 5.0 - FADE_END_MARGIN_SECONDS)
+
+    def test_el_adelanto_aprendido_se_resta_del_punto_elegido(self):
+        pista = track(duration=300, vocal_last_end=280.0)
+
+        self.assertEqual(choose_fade_out(pista, 5.0, advance=10.0), 281.0 - 10.0)
+        self.assertEqual(choose_fade_out(track(duration=200), 5.0, advance=10.0), 200 - 5.0 - FADE_END_MARGIN_SECONDS - 10.0)
+
+    def test_un_adelanto_enorme_no_deja_el_punto_antes_del_inicio(self):
+        self.assertEqual(choose_fade_out(track(duration=100), 5.0, advance=500.0), 0.0)
+
 
 class ChooseMixOutTests(SimpleTestCase):
     def test_elige_el_ultimo_cue_en_el_que_cabe_la_transicion(self):
@@ -188,6 +214,12 @@ class PlanTransitionTests(SimpleTestCase):
 
         self.assertEqual(plan.mix_out_at, round(300 - plan.seconds - FADE_END_MARGIN_SECONDS, 3))
         self.assertGreater(plan.mix_out_at, 285.0)
+
+    def test_el_fundido_aprovecha_la_cola_instrumental_cuando_se_conoce_donde_acaba_la_voz(self):
+        plan = plan_transition(track(1, bpm=128, duration=300, vocal_last_end=270.0), track(2, bpm=174))
+
+        self.assertEqual(plan.style, STYLE_FADE)
+        self.assertEqual(plan.mix_out_at, 271.0)
 
     def test_una_mezcla_con_tempos_igualados_sigue_saliendo_en_un_cue(self):
         plan = plan_transition(track(1, bpm=128, duration=300, cues=[0.0, 60.0, 270.0]), track(2, bpm=128))
