@@ -34,6 +34,8 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts permitidos |
 | `AUDIO_MAX_UPLOAD_BYTES` | `52428800` (50 MB) | Tamaño máximo de un audio subido |
 | `MEDIA_ROOT` | `media/` | Carpeta donde se guardan los audios subidos (ignorada por git) |
+| `VOCAL_ANALYSIS` | `auto` | Detección de voz: `auto` la hace si `requirements-vocals.txt` está instalado; `off` la desactiva |
+| `VOCAL_TORCH_THREADS` | `2` | Hilos de CPU del modelo de separación de voz |
 
 ## Endpoints
 
@@ -103,6 +105,7 @@ ruidosa (con 10-20 cada grupo de prueba tiene 2-4 ejemplos). Se probó solo con 
 | `POST` | `/api/audio/analyze` | `multipart/form-data` con `file` (WAV, FLAC, OGG o MP3) y `title` opcional. Analiza y guarda la pista. |
 | `GET` | `/api/audio/tracks` | Las 50 pistas más recientes. |
 | `GET` | `/api/audio/tracks/<id>` | Detalle de una pista (incluye `hasAudio`). |
+| `POST` | `/api/audio/tracks/<id>/vocals` | Pide analizar la voz del final de una pista ya guardada (en segundo plano; 202). 503 si el modelo no está instalado. |
 | `GET` | `/api/audio/tracks/<id>/file` | El audio original, para reproducirlo en los decks. 404 si la pista no tiene audio o el archivo ya no está. |
 
 Respuesta de `analyze` (201):
@@ -111,7 +114,8 @@ Respuesta de `analyze` (201):
 {
   "id": 1, "title": "tema.wav", "duration": 215.3,
   "bpm": 127.98, "key": "A minor", "camelot": "8A", "energy": 0.62,
-  "cuePoints": [0.4, 30.4, 60.4, 180.4], "hasAudio": true, "createdAt": "2026-10-21T18:30:00+00:00"
+  "cuePoints": [0.4, 30.4, 60.4, 180.4], "hasAudio": true, "createdAt": "2026-10-21T18:30:00+00:00",
+  "vocals": {"status": "pending", "lastEnd": null}
 }
 ```
 
@@ -127,6 +131,23 @@ Errores: `400` archivo ausente o ilegible, `413` demasiado grande, `422` válido
 - **Energía**: nivel RMS en dBFS normalizado entre 0 (-40 dB) y 1 (0 dB).
 - **Cues**: sobre la rejilla de compases del BPM: inicio de la música, cambios fuertes de energía
   (caídas, subidas, breakdowns, separados por ≥ 8 compases) y salida 16 compases antes del final.
+
+### Detección de voz (opcional)
+
+Para no cortar la letra de la pista que sale, el motor puede saber **dónde acaba la última frase cantada**.
+Se separa la voz de los últimos 60 s de la pista con Demucs (`htdemucs`) y se mide su energía
+(`audio/separator.py`, `audio/vocals.py`). Con eso, el fundido (cuando los tempos no se pueden igualar) empieza
+1 s después de la última frase si queda cola instrumental; si la voz llega hasta el final, sigue empezando
+al final de la canción.
+
+- **Instalar:** `pip install -r requirements-vocals.txt` (~750 MB; el modelo, ~80 MB, se descarga la primera vez).
+  Sin eso todo funciona igual y las pistas quedan con `vocals.status = "unavailable"`.
+- **Cuándo se analiza:** al subir una pista, en segundo plano y de una en una (un hilo). Para las ya guardadas:
+  `python manage.py analyze_vocals` (o `--all` para repetirlo) o `POST /api/audio/tracks/<id>/vocals`.
+- **Coste medido** en un Ryzen 3 3250U (2 núcleos, 3,4 GB de RAM, sin GPU): unos 3 min por pista, con la CPU
+  ocupada. Estados de `vocals.status`: `none`, `pending`, `running`, `done`, `failed`, `unavailable`.
+- **Qué no hace:** solo mira el final de la pista (no el inicio), y con mezclas de tempos igualados
+  (`blend`) la salida sigue yendo a un cue sin tener en cuenta la voz.
 
 ### Limitaciones conocidas
 
