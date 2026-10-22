@@ -312,6 +312,29 @@ class WeightsViewTests(ViewTestCase):
         self.assertTrue(cuerpo['learned'])
         self.assertEqual(cuerpo['samples'], 42)
 
+    def test_incluye_las_versiones_guardadas_con_la_vigente_marcada(self):
+        LearnedWeights.objects.create(tempo=0.1, harmonic=0.8, energy=0.1, samples=20, version=1, active=False)
+        LearnedWeights.objects.create(tempo=0.2, harmonic=0.6, energy=0.2, samples=30, version=2, active=True)
+
+        cuerpo = self.client.get(WEIGHTS).json()
+
+        self.assertEqual([v['version'] for v in cuerpo['history']], [2, 1])
+        self.assertEqual([v['active'] for v in cuerpo['history']], [True, False])
+        self.assertEqual(cuerpo['history'][1]['weights'], {'tempo': 0.1, 'harmonic': 0.8, 'energy': 0.1})
+        self.assertEqual(cuerpo['version'], 2)
+
+    def test_tras_volver_a_una_version_anterior_esa_es_la_vigente(self):
+        LearnedWeights.objects.create(tempo=0.1, harmonic=0.8, energy=0.1, samples=20, version=1, active=True)
+        LearnedWeights.objects.create(tempo=0.2, harmonic=0.6, energy=0.2, samples=30, version=2, active=False)
+
+        cuerpo = self.client.get(WEIGHTS).json()
+
+        self.assertEqual(cuerpo['version'], 1)
+        self.assertEqual(cuerpo['weights'], {'tempo': 0.1, 'harmonic': 0.8, 'energy': 0.1})
+
+    def test_sin_pesos_aprendidos_el_historial_esta_vacio(self):
+        self.assertEqual(self.client.get(WEIGHTS).json()['history'], [])
+
     def test_el_conteo_incluye_las_valoraciones_aunque_aun_no_se_haya_aprendido(self):
         a, b = crear_track('a'), crear_track('b')
         TransitionFeedback.objects.create(from_track=a, to_track=b, tempo=1, harmonic=1, energy=1, liked=True)

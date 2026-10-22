@@ -76,7 +76,7 @@ pesa cada criterio (tempo, armonía, energía) *para ese DJ*, en lugar de usar s
 |---|---|---|
 | `POST` | `/api/mix/feedback` | `{fromTrackId, toTrackId, liked}` (`liked` debe ser `true`/`false`). Guarda la valoración con las puntuaciones que tenía la transición y reentrena. Devuelve `{weights, samples, learned}`. |
 | `POST` | `/api/mix/timing` | `{fromTrackId, toTrackId, plannedMixOutAt, actualMixOutAt}` en segundos. El DJ pidió mezclar antes de lo planeado: se guarda y, con 3 casos o más, el motor adelanta sus mezclas la mediana de esos adelantos (máx. 120 s; cuentan los últimos 20). Devuelve `{samples, advanceSeconds, learned}`. `/api/mix/transition` devuelve el adelanto aplicado en `mixOutAdvance`. |
-| `GET` | `/api/mix/weights` | Los pesos vigentes, si son aprendidos, con cuántas valoraciones, su `version` y su acierto medido (`accuracy` frente a `defaultAccuracy`, `null` si no se pudo medir). |
+| `GET` | `/api/mix/weights` | Los pesos vigentes, si son aprendidos, con cuántas valoraciones, su `version` y su acierto medido (`accuracy` frente a `defaultAccuracy`, `null` si no se pudo medir) y `history`: las 10 versiones guardadas más nuevas, con la vigente marcada (`active`). |
 
 Cómo aprende (`mixing/learning.py`): una **regresión logística** de tres variables entrenada con descenso de gradiente
 (con `numpy`, determinista). Detalles que importan:
@@ -95,8 +95,24 @@ cada quinta parte de las valoraciones, se entrena con el resto y se mide cuánta
 lo más frecuente. **Si los pesos nuevos aciertan menos que los de por defecto, no se adoptan** y siguen los vigentes. Los
 adoptados llevan un número de `version` y su `accuracy`.
 
-**Limitaciones:** es un modelo muy pequeño (tres números); se guarda solo la última versión (no hay historial ni vuelta atrás
-a versiones anteriores, solo el rechazo de las peores); no hay embeddings de pistas. Con pocas valoraciones la medición es
+**Historial y vuelta atrás.** Cada reentrenamiento guarda una versión nueva y se conservan las últimas 50; solo una es la
+vigente. Se administra con `python manage.py learning` (no hay endpoints para esto, porque borrar o cambiar lo aprendido
+no debe estar al alcance de cualquier petición):
+
+| Opción | Qué hace |
+|---|---|
+| `--list` | Muestra las versiones de los pesos (la vigente con `*`) y cuántas valoraciones y casos de «cuándo mezclar» hay. |
+| `--rollback-weights` | Vuelve a la versión anterior a la vigente. |
+| `--restore-version N` | Vuelve a usar la versión `N`. |
+| `--reset-weights` | Deja de usar los pesos aprendidos (vuelven los 45/40/15). Conserva valoraciones e historial. |
+| `--reset-weights --forget-ratings` | Además borra las valoraciones y las versiones guardadas: empezar de cero. |
+| `--reset-timing` | Borra lo aprendido sobre cuándo mezclar (`MixTimingFeedback`). |
+
+Ojo: volver a una versión o reiniciar **dura hasta la próxima valoración**, porque el reentrenamiento parte siempre de
+las valoraciones guardadas y su resultado pasa a ser la versión vigente. Para que no vuelva a aprender lo mismo hay que
+borrar también las valoraciones (`--forget-ratings`).
+
+**Limitaciones:** es un modelo muy pequeño (tres números); no hay embeddings de pistas. Con pocas valoraciones la medición es
 ruidosa (con 10-20 cada grupo de prueba tiene 2-4 ejemplos). Se probó solo con valoraciones sintéticas: falta ver cómo se comporta con un DJ real.
 
 ### Análisis de audio (`audio`)

@@ -8,10 +8,9 @@ from django.views.decorators.csrf import csrf_exempt
 from audio.models import Track
 
 from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
-from .models import LearnedWeights
 from .timing import learned_advance, record_mix_timing, timing_count
 from .transition import plan_transition
-from .weights import current_weights, feedback_count, record_feedback
+from .weights import active_weights, current_weights, feedback_count, record_feedback, weight_history
 
 DEFAULT_LIMIT = 5
 MAX_LIMIT = 20
@@ -182,7 +181,7 @@ def feedback(request):
     return JsonResponse({
         'weights': _weights_to_dict(weights),
         'samples': feedback_count(),
-        'learned': LearnedWeights.objects.exists(),
+        'learned': active_weights() is not None,
     }, status=201)
 
 
@@ -217,7 +216,7 @@ def weights(request):
     """GET: los pesos vigentes, si son aprendidos, con cuantas valoraciones, su version y su acierto medido."""
     if request.method != 'GET':
         return JsonResponse({'error': 'Metodo no permitido'}, status=405)
-    learned = LearnedWeights.objects.first()
+    learned = active_weights()
     return JsonResponse({
         'weights': _weights_to_dict(current_weights()),
         'learned': learned is not None,
@@ -226,4 +225,13 @@ def weights(request):
         # Acierto con valoraciones apartadas del entrenamiento; null si no se pudo medir (o no hay pesos aprendidos).
         'accuracy': learned.accuracy if learned else None,
         'defaultAccuracy': learned.default_accuracy if learned else None,
+        # Versiones guardadas (las 10 mas nuevas): se puede volver a una con `manage.py learning --restore-version N`.
+        'history': [
+            {
+                'version': row.version, 'active': row.active, 'weights': _weights_to_dict(
+                    ScoringWeights(row.tempo, row.harmonic, row.energy)),
+                'samples': row.samples, 'accuracy': row.accuracy,
+            }
+            for row in weight_history(limit=10)
+        ],
     })
