@@ -111,3 +111,11 @@ class TrackAudioFileTests(TempMediaMixin, TestCase):
         self.assertNotEqual(a.audio_file.name, b.audio_file.name)
         with a.audio_file.open('rb') as archivo:
             self.assertEqual(archivo.read(), b'AAAA')
+
+
+class GridManualTests(TestCase):
+    def test_por_defecto_la_rejilla_no_es_manual(self):
+        pista = Track.objects.create(
+            title='x', duration=10.0, bpm=120.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
+
+        self.assertFalse(pista.grid_manual)
