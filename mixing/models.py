@@ -63,3 +63,45 @@ class LearnedWeights(models.Model):
 
     def __str__(self):
         return f"tempo={self.tempo:.2f} armonia={self.harmonic:.2f} energia={self.energy:.2f} ({self.samples} valoraciones)"
+
+
+class MixRecording(models.Model):
+    """Una transicion tal como la hizo un DJ: cuando sale la pista A, cuando entra la B, cuanto solapan y como
+    movio el crossfader, el EQ y el volumen. Es el material con el que despues se aprende su estilo de mezcla.
+
+    Las dos pistas se guardan como foto de sus datos en ese momento (`snapshot_a` y `snapshot_b`): si luego se corrige
+    su rejilla o se borra la pista, la grabacion sigue siendo la misma.
+    """
+
+    SOURCE_CHOICES = [('manual', 'mezcla a mano'), ('autodj', 'Auto-DJ')]
+    QUALITY_CHOICES = [('unreviewed', 'sin revisar'), ('good', 'buena'), ('discard', 'descartada')]
+
+    from_track = models.ForeignKey(Track, null=True, on_delete=models.SET_NULL, related_name='+')
+    to_track = models.ForeignKey(Track, null=True, on_delete=models.SET_NULL, related_name='+')
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default='manual')
+    dj = models.CharField(max_length=60, default='dj', help_text="Alias de quien mezclo (nunca su nombre real).")
+    mix_out_at = models.FloatField(validators=[MinValueValidator(0)], help_text="Segundo de A en que entra B.")
+    mix_in_at = models.FloatField(validators=[MinValueValidator(0)], help_text="Segundo de B desde el que suena.")
+    overlap_seconds = models.FloatField(validators=[MinValueValidator(0)], help_text="Segundos que suenan las dos.")
+    pitch_a = models.FloatField(help_text="Factor de velocidad de A cuando entra B (1 = normal).")
+    pitch_b = models.FloatField(help_text="Factor de velocidad de B cuando entra.")
+    curves = models.JSONField(
+        default=dict, blank=True,
+        help_text="Curvas [segundo, valor 0-1] relativas a la entrada de B: crossfader y, por deck, volume/low/mid/high.",
+    )
+    snapshot_a = models.JSONField(help_text="Datos de la pista A cuando se grabo (bpm, Camelot, rejilla, voz...).")
+    snapshot_b = models.JSONField(help_text="Datos de la pista B cuando se grabo.")
+    genre_a = models.CharField(max_length=40, blank=True)
+    genre_b = models.CharField(max_length=40, blank=True)
+    quality = models.CharField(
+        max_length=10, choices=QUALITY_CHOICES, default='unreviewed',
+        help_text="Revision del DJ: solo las buenas deberian usarse para entrenar.",
+    )
+    notes = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f"{self.dj}: {self.from_track_id} -> {self.to_track_id} ({self.overlap_seconds:.0f} s)"

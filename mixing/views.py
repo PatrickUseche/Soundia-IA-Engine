@@ -2,12 +2,14 @@ import json
 import math
 from json.decoder import JSONDecodeError
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from audio.models import Track
 
 from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
+from .models import MixRecording
+from .recordings import QUALITIES, InvalidRecording, derive_features, parse_recording, parse_review
 from .timing import learned_advance, record_mix_timing, timing_count
 from .transition import plan_transition
 from .weights import active_weights, current_weights, feedback_count, record_feedback, weight_history
@@ -235,3 +237,90 @@ def weights(request):
             for row in weight_history(limit=10)
         ],
     })
+
+
+def _recording_to_dict(recording: MixRecording, full: bool = True) -> dict:
+    data = {
+        'id': recording.id,
+        'fromTrackId': recording.from_track_id,
+        'toTrackId': recording.to_track_id,
+        'source': recording.source,
+        'dj': recording.dj,
+        'mixOutAt': recording.mix_out_at,
+        'mixInAt': recording.mix_in_at,
+        'overlapSeconds': recording.overlap_seconds,
+        'pitchA': recording.pitch_a,
+        'pitchB': recording.pitch_b,
+        'genreA': recording.genre_a,
+        'genreB': recording.genre_b,
+        'quality': recording.quality,
+        'notes': recording.notes,
+        'createdAt': recording.created_at.isoformat(),
+        'features': derive_features({
+            'snapshot_a': recording.snapshot_a, 'snapshot_b': recording.snapshot_b,
+            'pitch_a': recording.pitch_a, 'pitch_b': recording.pitch_b, 'mix_out_at': recording.mix_out_at,
+            'mix_in_at': recording.mix_in_at, 'overlap_seconds': recording.overlap_seconds,
+            'curves': recording.curves,
+        }),
+    }
+    if full:
+        data['curves'] = recording.curves
+        data['snapshotA'] = recording.snapshot_a
+        data['snapshotB'] = recording.snapshot_b
+    return data
+
+
+MAX_RECORDINGS_LISTED = 200
+
+
+@csrf_exempt
+def recordings(request):
+    """POST: guarda una transicion tal como la hizo un DJ. GET: las mas recientes (sin las curvas), con un resumen."""
+    if request.method == 'POST':
+        try:
+            fields = parse_recording(_read_json_object(request))
+        except (BadRequest, InvalidRecording) as error:
+            return JsonResponse({'error': str(error)}, status=400)
+        except Track.DoesNotExist:
+            return JsonResponse({'error': 'No existe una de las pistas de la mezcla.'}, status=404)
+        return JsonResponse(_recording_to_dict(MixRecording.objects.create(**fields)), status=201)
+
+    if request.method == 'GET':
+        queryset = MixRecording.objects.all()
+        quality = request.GET.get('quality')
+        if quality:
+            if quality not in QUALITIES:
+                return JsonResponse({'error': f"'quality' debe ser uno de {list(QUALITIES)}."}, status=400)
+            queryset = queryset.filter(quality=quality)
+        counts = {q: MixRecording.objects.filter(quality=q).count() for q in QUALITIES}
+        return JsonResponse({
+            'recordings': [_recording_to_dict(r, full=False) for r in queryset[:MAX_RECORDINGS_LISTED]],
+            'counts': {**counts, 'total': sum(counts.values())},
+        })
+
+    return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+
+
+@csrf_exempt
+def recording_detail(request, pk):
+    """GET: una grabacion con sus curvas. PUT {quality?, notes?}: la revisa. DELETE: la borra."""
+    try:
+        recording = MixRecording.objects.get(pk=pk)
+    except MixRecording.DoesNotExist:
+        return JsonResponse({'error': 'Grabacion no encontrada'}, status=404)
+
+    if request.method == 'GET':
+        return JsonResponse(_recording_to_dict(recording))
+    if request.method == 'PUT':
+        try:
+            changes = parse_review(_read_json_object(request))
+        except (BadRequest, InvalidRecording) as error:
+            return JsonResponse({'error': str(error)}, status=400)
+        for field, value in changes.items():
+            setattr(recording, field, value)
+        recording.save(update_fields=list(changes))
+        return JsonResponse(_recording_to_dict(recording))
+    if request.method == 'DELETE':
+        recording.delete()
+        return HttpResponse(status=204)
+    return JsonResponse({'error': 'Metodo no permitido'}, status=405)
