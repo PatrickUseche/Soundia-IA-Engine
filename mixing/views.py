@@ -1,4 +1,5 @@
 import json
+import math
 from json.decoder import JSONDecodeError
 
 from django.http import JsonResponse
@@ -8,6 +9,7 @@ from audio.models import Track
 
 from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
 from .models import LearnedWeights
+from .timing import learned_advance, record_mix_timing, timing_count
 from .transition import plan_transition
 from .weights import current_weights, feedback_count, record_feedback
 
@@ -41,6 +43,13 @@ def _read_id(data: dict, key: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise BadRequest(f"Falta '{key}' o no es un entero.")
     return value
+
+
+def _read_seconds(data: dict, key: str) -> float:
+    value = data.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        raise BadRequest(f"Falta '{key}' o no es un numero de segundos (0 o mas).")
+    return float(value)
 
 
 def _get_track(track_id: int) -> Track:
@@ -131,7 +140,7 @@ def transition(request):
     except NotFound as error:
         return JsonResponse({'error': str(error)}, status=404)
 
-    plan = plan_transition(origin, destination, current_weights())
+    plan = plan_transition(origin, destination, current_weights(), advance=learned_advance())
     return JsonResponse({
         'fromTrackId': from_id,
         'toTrackId': to_id,
@@ -143,6 +152,7 @@ def transition(request):
         'tempoMatch': _tempo_match_to_dict(plan.tempo_match),
         'compatibility': _compatibility_to_dict(plan.compatibility),
         'automation': [_automation_point_to_dict(point) for point in plan.automation],
+        'mixOutAdvance': plan.mix_out_advance,
     })
 
 
@@ -174,6 +184,33 @@ def feedback(request):
         'samples': feedback_count(),
         'learned': LearnedWeights.objects.exists(),
     }, status=201)
+
+
+@csrf_exempt
+def mix_timing(request):
+    """POST {fromTrackId, toTrackId, plannedMixOutAt, actualMixOutAt}: el DJ pidio mezclar antes de lo planeado.
+
+    El motor guarda el caso y, con suficientes, adelanta sus siguientes mezclas.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    try:
+        data = _read_json_object(request)
+        from_id = _read_id(data, 'fromTrackId')
+        to_id = _read_id(data, 'toTrackId')
+        planned = _read_seconds(data, 'plannedMixOutAt')
+        actual = _read_seconds(data, 'actualMixOutAt')
+        if from_id == to_id:
+            raise BadRequest('No se puede mezclar una pista consigo misma.')
+        origin = _get_track(from_id)
+        destination = _get_track(to_id)
+    except BadRequest as error:
+        return JsonResponse({'error': str(error)}, status=400)
+    except NotFound as error:
+        return JsonResponse({'error': str(error)}, status=404)
+
+    advance = record_mix_timing(origin, destination, planned, actual)
+    return JsonResponse({'samples': timing_count(), 'advanceSeconds': advance, 'learned': advance > 0}, status=201)
 
 
 def weights(request):

@@ -4,9 +4,10 @@ from django.test import TestCase
 
 from audio.models import Track
 from mixing.learning import MIN_SAMPLES
-from mixing.models import LearnedWeights, TransitionFeedback
+from mixing.models import LearnedWeights, MixTimingFeedback, TransitionFeedback
 
 NEXT = '/api/mix/next'
+TIMING = '/api/mix/timing'
 TRANSITION = '/api/mix/transition'
 
 
@@ -367,3 +368,56 @@ class LearningLoopTests(ViewTestCase):
             self.valorar(self.misma_tonalidad, liked=False)
 
         self.assertEqual(self.primera_recomendada(), self.tempo_perfecto.id)
+
+
+class MixTimingViewTests(ViewTestCase):
+    def setUp(self):
+        self.a = crear_track('a', bpm=128)
+        self.b = crear_track('b', bpm=174)
+
+    def datos(self, **cambios):
+        return {'fromTrackId': self.a.id, 'toTrackId': self.b.id, 'plannedMixOutAt': 290.0, 'actualMixOutAt': 250.0,
+                **cambios}
+
+    def test_guarda_el_momento_en_que_el_dj_pidio_mezclar(self):
+        response = self.post(TIMING, self.datos())
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(MixTimingFeedback.objects.count(), 1)
+        self.assertEqual(response.json(), {'samples': 1, 'advanceSeconds': 0.0, 'learned': False})
+
+    def test_con_varios_casos_el_motor_aprende_a_mezclar_antes(self):
+        for _ in range(3):
+            response = self.post(TIMING, self.datos())
+
+        self.assertEqual(response.json(), {'samples': 3, 'advanceSeconds': 40.0, 'learned': True})
+
+    def test_la_transicion_aplica_lo_aprendido(self):
+        antes = self.post(TRANSITION, {'fromTrackId': self.a.id, 'toTrackId': self.b.id}).json()
+        for _ in range(3):
+            self.post(TIMING, self.datos())
+
+        despues = self.post(TRANSITION, {'fromTrackId': self.a.id, 'toTrackId': self.b.id}).json()
+
+        self.assertEqual(antes['mixOutAdvance'], 0.0)
+        self.assertEqual(despues['mixOutAdvance'], 40.0)
+        self.assertAlmostEqual(despues['mixOutAt'], antes['mixOutAt'] - 40.0, places=3)
+
+    def test_rechaza_peticiones_invalidas(self):
+        casos = [
+            self.datos(plannedMixOutAt='mucho'),
+            self.datos(actualMixOutAt=-1),
+            self.datos(actualMixOutAt=None),
+            self.datos(plannedMixOutAt=True),
+            self.datos(toTrackId=self.a.id),
+        ]
+        for caso in casos:
+            with self.subTest(caso=caso):
+                self.assertEqual(self.post(TIMING, caso).status_code, 400)
+        self.assertEqual(MixTimingFeedback.objects.count(), 0)
+
+    def test_pista_inexistente_devuelve_404(self):
+        self.assertEqual(self.post(TIMING, self.datos(toTrackId=9999)).status_code, 404)
+
+    def test_solo_acepta_post(self):
+        self.assertEqual(self.client.get(TIMING).status_code, 405)
