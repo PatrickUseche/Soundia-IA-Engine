@@ -96,3 +96,83 @@ def train_weights(samples: list[FeedbackSample], prior: ScoringWeights = DEFAULT
     tempo, harmonic = float(clipped[0]), float(clipped[1])
     # Se corrige el ultimo para que la suma sea exactamente 1 pese al redondeo de coma flotante.
     return ScoringWeights(tempo, harmonic, max(0.0, 1.0 - tempo - harmonic))
+
+
+# --- Evaluacion ---------------------------------------------------------------------------------------------
+
+EVALUATION_FOLDS = 5
+
+
+@dataclass(frozen=True)
+class Evaluation:
+    """Cuanto acierta el modelo con valoraciones que no vio al entrenar (validacion cruzada).
+
+    Cada acierto se mide prediciendo "me gusto" / "no me gusto" de transiciones apartadas del entrenamiento.
+    `majority` es lo que acertaria quien dijera siempre la respuesta mas frecuente: si el modelo no la supera,
+    no ha aprendido nada util.
+    """
+
+    learned: float
+    default: float
+    majority: float
+    folds: int
+    samples: int
+
+    @property
+    def improves_on_default(self) -> bool:
+        return self.learned > self.default
+
+    @property
+    def beats_majority(self) -> bool:
+        return self.learned > self.majority
+
+
+def _score(weights: ScoringWeights, sample: FeedbackSample) -> float:
+    return weights.tempo * sample.tempo + weights.harmonic * sample.harmonic + weights.energy * sample.energy
+
+
+def _decision_threshold(weights: ScoringWeights, train: list[FeedbackSample]) -> float:
+    """Puntuacion a partir de la cual se predice "me gusto": el punto medio entre las medias de cada clase."""
+    liked = [_score(weights, s) for s in train if s.liked]
+    disliked = [_score(weights, s) for s in train if not s.liked]
+    return (sum(liked) / len(liked) + sum(disliked) / len(disliked)) / 2
+
+
+def _accuracy(weights: ScoringWeights, train: list[FeedbackSample], test: list[FeedbackSample]) -> float:
+    threshold = _decision_threshold(weights, train)
+    hits = sum(1 for s in test if (_score(weights, s) > threshold) == s.liked)
+    return hits / len(test)
+
+
+def evaluate(samples: list[FeedbackSample], folds: int = EVALUATION_FOLDS) -> Evaluation | None:
+    """Validacion cruzada de `train_weights` frente a los pesos por defecto; None si no hay datos suficientes.
+
+    Las valoraciones se reparten por turnos entre `folds` grupos (la i-esima va al grupo i % folds); cada grupo se
+    aparta una vez como prueba mientras se entrena con los demas. Es determinista. Los grupos cuyo entrenamiento
+    no tenga las dos clases se saltan.
+    """
+    if folds < 2 or not has_enough_signal(samples):
+        return None
+
+    learned_hits = default_hits = majority_hits = tested = used = 0
+    for fold in range(folds):
+        test = [s for i, s in enumerate(samples) if i % folds == fold]
+        train = [s for i, s in enumerate(samples) if i % folds != fold]
+        if not test or not any(s.liked for s in train) or all(s.liked for s in train):
+            continue
+
+        learned = train_weights(train)
+        learned_hits += _accuracy(learned, train, test) * len(test)
+        default_hits += _accuracy(DEFAULT_WEIGHTS, train, test) * len(test)
+        likes_in_train = sum(1 for s in train if s.liked)
+        majority_liked = likes_in_train * 2 >= len(train)
+        majority_hits += sum(1 for s in test if s.liked == majority_liked)
+        tested += len(test)
+        used += 1
+
+    if tested == 0:
+        return None
+    return Evaluation(
+        learned=learned_hits / tested, default=default_hits / tested, majority=majority_hits / tested,
+        folds=used, samples=len(samples),
+    )
