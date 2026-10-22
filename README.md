@@ -36,6 +36,7 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 | `MEDIA_ROOT` | `media/` | Carpeta donde se guardan los audios subidos (ignorada por git) |
 | `VOCAL_ANALYSIS` | `auto` | Detección de voz: `auto` la hace si `requirements-vocals.txt` está instalado; `off` la desactiva |
 | `VOCAL_TORCH_THREADS` | `2` | Hilos de CPU del modelo de separación de voz |
+| `VOCAL_ANALYSIS_TIMEOUT` | `1800` | Segundos que se le dan a un análisis de voz antes de darlo por colgado |
 
 ## Endpoints
 
@@ -163,10 +164,12 @@ al final de la canción.
 
 - **Instalar:** `pip install -r requirements-vocals.txt` (~750 MB; el modelo, ~80 MB, se descarga la primera vez).
   Sin eso todo funciona igual y las pistas quedan con `vocals.status = "unavailable"`.
-- **Cuándo se analiza:** al subir una pista, en segundo plano y de una en una (un hilo). Para las ya guardadas:
+- **Cuándo se analiza:** al subir una pista, en segundo plano y de una en una (un hilo). Cada análisis corre en un
+  **proceso aparte** (`audio/vocal_worker.py`): en un equipo con poca RAM, PyTorch puede acabar en un fallo nativo
+  de memoria, y así solo falla esa pista (queda `failed`) en vez de caerse el servidor. Para las ya guardadas:
   `python manage.py analyze_vocals` (o `--all` para repetirlo) o `POST /api/audio/tracks/<id>/vocals`.
 - **Coste medido** en un Ryzen 3 3250U (2 núcleos, 3,4 GB de RAM, sin GPU): unos 3 min por pista, con la CPU
-  ocupada. Estados de `vocals.status`: `none`, `pending`, `running`, `done`, `failed`, `unavailable`.
+  ocupada, y un pico de unos 750 MB de RAM en el proceso del análisis. Estados de `vocals.status`: `none`, `pending`, `running`, `done`, `failed`, `unavailable`.
 - **Qué no hace:** solo mira el final de la pista (no el inicio), y con mezclas de tempos igualados
   (`blend`) la salida sigue yendo a un cue sin tener en cuenta la voz.
 
