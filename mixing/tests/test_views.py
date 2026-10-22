@@ -279,6 +279,27 @@ class WeightsViewTests(ViewTestCase):
         self.assertEqual(cuerpo['weights'], {'tempo': 0.45, 'harmonic': 0.4, 'energy': 0.15})
         self.assertFalse(cuerpo['learned'])
         self.assertEqual(cuerpo['samples'], 0)
+        self.assertEqual(cuerpo['version'], 0)
+        self.assertIsNone(cuerpo['accuracy'])
+        self.assertIsNone(cuerpo['defaultAccuracy'])
+
+    def test_con_pesos_aprendidos_devuelve_su_version_y_su_acierto(self):
+        LearnedWeights.objects.create(
+            tempo=0.2, harmonic=0.6, energy=0.2, samples=42, version=3, accuracy=0.85, default_accuracy=0.7)
+
+        cuerpo = self.client.get(WEIGHTS).json()
+
+        self.assertEqual(cuerpo['version'], 3)
+        self.assertEqual(cuerpo['accuracy'], 0.85)
+        self.assertEqual(cuerpo['defaultAccuracy'], 0.7)
+
+    def test_si_el_acierto_no_se_pudo_medir_es_null(self):
+        LearnedWeights.objects.create(tempo=0.2, harmonic=0.6, energy=0.2, samples=42)
+
+        cuerpo = self.client.get(WEIGHTS).json()
+
+        self.assertIsNone(cuerpo['accuracy'])
+        self.assertEqual(cuerpo['version'], 1)
 
     def test_con_pesos_aprendidos_los_devuelve_con_el_numero_de_valoraciones(self):
         LearnedWeights.objects.create(tempo=0.2, harmonic=0.6, energy=0.2, samples=42)

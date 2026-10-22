@@ -177,7 +177,7 @@ def feedback(request):
 
 
 def weights(request):
-    """GET: los pesos de la puntuacion vigentes, si son aprendidos y con cuantas valoraciones."""
+    """GET: los pesos vigentes, si son aprendidos, con cuantas valoraciones, su version y su acierto medido."""
     if request.method != 'GET':
         return JsonResponse({'error': 'Metodo no permitido'}, status=405)
     learned = LearnedWeights.objects.first()
@@ -185,4 +185,8 @@ def weights(request):
         'weights': _weights_to_dict(current_weights()),
         'learned': learned is not None,
         'samples': max(feedback_count(), learned.samples if learned else 0),
+        'version': learned.version if learned else 0,
+        # Acierto con valoraciones apartadas del entrenamiento; null si no se pudo medir (o no hay pesos aprendidos).
+        'accuracy': learned.accuracy if learned else None,
+        'defaultAccuracy': learned.default_accuracy if learned else None,
     })
