@@ -175,8 +175,10 @@ al final de la canción.
 
 ### Limitaciones conocidas
 
-- La rejilla de compases se ancla al **primer ataque** detectado; no se detecta el *downbeat* real,
-  así que en música con intro sin percusión el compás puede quedar desfasado un pulso.
+- El primer tiempo del compás (*downbeat*) se estima por la energía de graves de cada pulso: en ritmos con el
+  bombo en todos los pulsos (reggaetón) no se puede saber y la confianza sale baja; con confianza menor que 0,2 no
+  se debe alinear por compás. Se probó una señal de cambio de textura por posición y no discrimina (≈25 % en cada
+  una de las 4 posiciones), así que no se usa.
 - La tonalidad se pensó para música tonal; en percusión pura no es fiable (`confidence` baja).
 - Solo se analizan los primeros 10 minutos de cada pista.
 - Las pruebas usan señales sintéticas; falta validar con música real.
