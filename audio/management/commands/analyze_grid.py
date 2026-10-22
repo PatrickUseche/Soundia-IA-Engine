@@ -13,11 +13,17 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--all', action='store_true', help='Recalcular tambien las pistas que ya tienen rejilla.')
+        parser.add_argument(
+            '--include-manual', action='store_true',
+            help='Con --all, recalcular tambien las pistas cuyo primer tiempo fijo el DJ a mano (se pierde esa correccion).',
+        )
 
     def handle(self, *args, **options):
         pistas = Track.objects.exclude(audio_file='')
         if not options['all']:
             pistas = pistas.filter(grid_offset__isnull=True)
+        elif not options['include_manual']:
+            pistas = pistas.exclude(grid_manual=True)
         pistas = list(pistas.order_by('id'))
 
         self.stdout.write(f'Calculando la rejilla de {len(pistas)} pista(s).')

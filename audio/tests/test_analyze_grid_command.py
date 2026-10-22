@@ -97,3 +97,41 @@ class AnalyzeGridCommandTests(TempMediaMixin, TestCase):
 
         buena.refresh_from_db()
         self.assertIsNotNone(buena.grid_offset)
+
+
+class AnalyzeGridCommandManualTests(TempMediaMixin, TestCase):
+    def ejecutar(self, *args):
+        salida = StringIO()
+        call_command('analyze_grid', *args, stdout=salida)
+        return salida.getvalue()
+
+    def crear_manual(self):
+        return crear_pista(grid_offset=0.2, grid_downbeat=0.9, grid_confidence=1.0, grid_manual=True)
+
+    def test_con_all_no_pisa_el_primer_tiempo_fijado_a_mano(self):
+        pista = self.crear_manual()
+
+        salida = self.ejecutar('--all')
+
+        pista.refresh_from_db()
+        self.assertEqual((pista.grid_downbeat, pista.grid_confidence, pista.grid_manual), (0.9, 1.0, True))
+        self.assertIn('0 pista', salida)
+
+    def test_con_include_manual_si_la_recalcula_y_pierde_la_marca_de_manual(self):
+        pista = self.crear_manual()
+
+        self.ejecutar('--all', '--include-manual')
+
+        pista.refresh_from_db()
+        self.assertNotEqual(pista.grid_confidence, 1.0)
+
+    def test_recalcula_el_resto_aunque_haya_pistas_manuales(self):
+        manual = self.crear_manual()
+        normal = crear_pista(grid_offset=0.5, grid_downbeat=0.5, grid_confidence=0.1)
+
+        self.ejecutar('--all')
+
+        manual.refresh_from_db()
+        normal.refresh_from_db()
+        self.assertEqual(manual.grid_downbeat, 0.9)
+        self.assertNotEqual(normal.grid_offset, 0.5)
