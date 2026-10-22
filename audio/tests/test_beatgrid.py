@@ -1,7 +1,7 @@
 import numpy as np
 from django.test import SimpleTestCase
 
-from audio.beatgrid import MIN_BEAT_STRENGTH, estimate_grid
+from audio.beatgrid import EARLY_BEAT_TOLERANCE_SECONDS, MIN_BEAT_STRENGTH, estimate_grid
 from audio.tests.signals import SR, click_track, sine
 
 
@@ -52,11 +52,29 @@ class EstimateGridTests(SimpleTestCase):
 
         self.assertAlmostEqual(rejilla.bpm, 110.0, delta=0.02)
 
-    def test_el_primer_pulso_siempre_cae_dentro_del_primer_periodo(self):
+    def test_el_tempo_es_preciso_aunque_la_pista_sea_corta(self):
+        # Con 30 s, el plegado solo da el tempo a unas centesimas; ajustar la deriva de la fase lo afina.
+        for bpm in (110.0, 123.45, 96.7):
+            with self.subTest(bpm=bpm):
+                rejilla = estimate_grid(click_track(bpm, 30, first_beat=0.2), SR, bpm_hint=round(bpm))
+
+                self.assertAlmostEqual(rejilla.bpm, bpm, delta=0.015)
+                self.assertLess(abs(circular_error(rejilla.offset, 0.2, 60 / bpm)), 0.004)
+
+    def test_el_primer_pulso_cae_dentro_del_primer_periodo(self):
         rejilla = estimate_grid(click_track(120, 30, first_beat=0.7), SR, bpm_hint=120)
 
-        self.assertGreaterEqual(rejilla.offset, 0.0)
+        self.assertGreaterEqual(rejilla.offset, -EARLY_BEAT_TOLERANCE_SECONDS)
         self.assertLess(rejilla.offset, 60 / 120)
+
+    def test_un_golpe_justo_antes_de_empezar_el_audio_sigue_siendo_el_primer_pulso(self):
+        # El golpe real cae 3 ms antes del inicio: el primer pulso es ese (offset negativo), no el siguiente.
+        y = click_track(120, 30, first_beat=0.5 - 0.003 + 0.0)  # mismos pulsos que uno en -3 ms
+        rejilla = estimate_grid(y, SR, bpm_hint=120)
+
+        self.assertAlmostEqual(rejilla.offset % 0.5, 0.497, delta=0.004)
+        self.assertLess(rejilla.offset, 0.0 + 0.01)
+        self.assertGreaterEqual(rejilla.offset, -EARLY_BEAT_TOLERANCE_SECONDS)
 
     def test_un_pulso_regular_tiene_mucha_fuerza(self):
         rejilla = estimate_grid(click_track(124, 40, first_beat=0.1), SR, bpm_hint=124)
@@ -88,7 +106,7 @@ class DownbeatTests(SimpleTestCase):
     def test_el_primer_tiempo_cae_dentro_del_primer_compas(self):
         rejilla = estimate_grid(kick_pattern(100, 40, 0.3, strong_beat=2), SR, bpm_hint=100)
 
-        self.assertGreaterEqual(rejilla.downbeat_offset, 0.0)
+        self.assertGreaterEqual(rejilla.downbeat_offset, -EARLY_BEAT_TOLERANCE_SECONDS)
         self.assertLess(rejilla.downbeat_offset, 4 * 60 / 100)
 
     def test_con_todos_los_pulsos_iguales_la_confianza_es_baja(self):

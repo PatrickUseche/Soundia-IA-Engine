@@ -35,6 +35,11 @@ FINE_BINS = 400
 # Suavizado (en bins) del histograma de fase para localizar su pico.
 PHASE_SMOOTHING_BINS = 3.0
 
+# Ajuste del tempo por la deriva de la fase: se mide la fase en tramos de esta duracion y la pendiente que
+# forman corrige el tempo (hacen falta al menos MIN_DRIFT_SEGMENTS tramos).
+DRIFT_SEGMENT_SECONDS = 10.0
+MIN_DRIFT_SEGMENTS = 3
+
 # Afinado de la fase con la subida real de energia.
 ATTACK_WINDOW_SECONDS = 0.06
 ATTACK_ENVELOPE_CUTOFF_HZ = 60
@@ -48,6 +53,12 @@ KICK_WINDOW_SECONDS = 0.08
 # Fuerza minima del pulso para fiarse de la rejilla (fraccion de la energia de ataques que cae en los golpes).
 # Medido: ruido y tonos puros dan < 0.01; la musica real, 0.13-0.16; un pulso sintetico limpio, 0.87.
 MIN_BEAT_STRENGTH = 0.05
+# Un golpe que cae como mucho tan poco antes de que empiece el audio sigue siendo el primer pulso (con un
+# desfase negativo): si no, un golpe en -3 ms se contaria como "el segundo" y el compas se movería un pulso.
+EARLY_BEAT_TOLERANCE_SECONDS = 0.03
+# Confianza minima del primer tiempo para fiarse de el. Medido: pulsos todos iguales 0.00, Zion y Lennox 0.03,
+# Don Omar 0.59, bombos con un tiempo fuerte claro 0.50.
+MIN_DOWNBEAT_CONFIDENCE = 0.2
 # Ancho de la franja alrededor del pico que se considera "en el golpe", para medir su fuerza.
 BEAT_STRENGTH_WINDOW_SECONDS = 0.05
 
@@ -55,8 +66,8 @@ BEAT_STRENGTH_WINDOW_SECONDS = 0.05
 @dataclass(frozen=True)
 class BeatGrid:
     bpm: float
-    offset: float  # segundo del primer pulso (siempre dentro del primer periodo)
-    downbeat_offset: float  # segundo del primer "primer tiempo" de compas (dentro del primer compas)
+    offset: float  # segundo del primer pulso, en [-EARLY_BEAT_TOLERANCE, periodo - EARLY_BEAT_TOLERANCE)
+    downbeat_offset: float  # segundo del primer "primer tiempo" de compas, en el primer compas (idem)
     beat_strength: float  # 0-1: cuanto se concentran los ataques en los pulsos; bajo = sin ritmo claro
     downbeat_confidence: float  # 0-1: cuanto destaca el primer tiempo sobre los otros tres pulsos
 
@@ -88,6 +99,41 @@ def _refine_bpm(envelope: np.ndarray, frame_seconds: float, bpm_hint: float) -> 
     candidates = np.arange(bpm_hint - BPM_SEARCH_SPAN, bpm_hint + BPM_SEARCH_SPAN + 1e-9, BPM_SEARCH_STEP)
     scores = [float(np.var(_fold(envelope, frame_seconds, bpm, COARSE_BINS)[0])) for bpm in candidates]
     return float(candidates[int(np.argmax(scores))])
+
+
+def _phase_peak(histogram: np.ndarray) -> int:
+    return int(np.argmax(_smooth_circular(histogram)))
+
+
+def _refine_bpm_by_drift(envelope: np.ndarray, frame_seconds: float, bpm: float) -> float:
+    """Corrige el tempo con la pendiente de la fase a lo largo de la pista.
+
+    Con el tempo exacto, la fase de los golpes es la misma al principio que al final; si el tempo falla en
+    una centesima, la fase se va desplazando milisegundos. La pendiente de ese desplazamiento da la correccion.
+    """
+    period = 60.0 / bpm
+    segment_frames = int(DRIFT_SEGMENT_SECONDS / frame_seconds)
+    count = len(envelope) // segment_frames
+    if count < MIN_DRIFT_SEGMENTS:
+        return bpm
+
+    centers, phases = [], []
+    for index in range(count):
+        start = index * segment_frames
+        times = (np.arange(segment_frames) + start) * frame_seconds
+        bins = ((times % period) / period * FINE_BINS).astype(int) % FINE_BINS
+        histogram = np.bincount(bins, weights=envelope[start:start + segment_frames], minlength=FINE_BINS)
+        if histogram.sum() <= 0:
+            continue
+        centers.append((start + segment_frames / 2) * frame_seconds)
+        phases.append((_phase_peak(histogram) + 0.5) / FINE_BINS * period)
+    if len(phases) < MIN_DRIFT_SEGMENTS:
+        return bpm
+
+    # Fases relativas a la primera, llevadas a +-medio periodo para no contar vueltas completas.
+    relative = ((np.array(phases) - phases[0] + period / 2) % period) - period / 2
+    slope = float(np.polyfit(centers, relative, 1)[0])  # segundos de fase por segundo de pista
+    return bpm / (1.0 + slope)
 
 
 def _smooth_circular(histogram: np.ndarray) -> np.ndarray:
@@ -150,6 +196,7 @@ def estimate_grid(y: np.ndarray, sr: int, bpm_hint: float) -> BeatGrid:
     frame_seconds = HOP_LENGTH / sr
 
     bpm = _refine_bpm(envelope, frame_seconds, bpm_hint)
+    bpm = _refine_bpm_by_drift(envelope, frame_seconds, bpm)
     histogram, period = _fold(envelope, frame_seconds, bpm, FINE_BINS)
     smoothed = _smooth_circular(histogram)
     phase = (int(np.argmax(smoothed)) + 0.5) / FINE_BINS * period
@@ -165,10 +212,11 @@ def estimate_grid(y: np.ndarray, sr: int, bpm_hint: float) -> BeatGrid:
     corrected = phase + _attack_correction(y, sr, beat_times)
 
     position, confidence = _downbeat(y, sr, corrected, period)
-    downbeat = (corrected + position * period) % (BEATS_PER_BAR * period)
+    tolerance = EARLY_BEAT_TOLERANCE_SECONDS
+    downbeat = ((corrected + position * period + tolerance) % (BEATS_PER_BAR * period)) - tolerance
     return BeatGrid(
         bpm=round(bpm, 3),
-        offset=round(downbeat % period, 4),
+        offset=round(((downbeat + tolerance) % period) - tolerance, 4),
         downbeat_offset=round(downbeat, 4),
         beat_strength=round(strength, 3),
         downbeat_confidence=round(confidence, 3),
