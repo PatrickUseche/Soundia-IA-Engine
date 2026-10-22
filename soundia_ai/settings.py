@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -36,8 +37,15 @@ if not SECRET_KEY:
     # Clave solo para desarrollo local; nunca se usa con DEBUG=False.
     SECRET_KEY = 'django-insecure-solo-desarrollo-local'
 
+# Carpeta donde se guardan los audios subidos (ignorada por git). Se puede cambiar con MEDIA_ROOT.
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
+
 # Tamano maximo de un archivo de audio subido para analizar (por defecto 50 MB).
 AUDIO_MAX_UPLOAD_BYTES = int(os.environ.get('AUDIO_MAX_UPLOAD_BYTES', 50 * 1024 * 1024))
+
+# Analisis de voz del final de las pistas (ver audio/vocal_jobs.py): 'auto' lo hace si el modelo esta instalado
+# (requirements-vocals.txt) y 'off' lo desactiva. En las pruebas esta siempre apagado.
+VOCAL_ANALYSIS = 'off' if 'test' in sys.argv else os.environ.get('VOCAL_ANALYSIS', 'auto')
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -57,6 +65,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'telemetry', # Microservicio receptor registrado.
     'audio', # Analisis de audio: BPM, tonalidad, energia y puntos de mezcla.
+    'mixing', # Motor de mezcla: siguiente pista, beatmatching y plan de transicion.
 ]
 
 MIDDLEWARE = [
@@ -95,7 +104,8 @@ WSGI_APPLICATION = 'soundia_ai.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # En un contenedor la base debe vivir en un volumen: SQLITE_PATH permite moverla.
+        'NAME': Path(os.environ.get('SQLITE_PATH', BASE_DIR / 'db.sqlite3')),
     }
 }
 

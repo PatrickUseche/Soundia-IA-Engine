@@ -1,9 +1,13 @@
 import numpy as np
 from django.core.files.uploadedfile import SimpleUploadedFile
+from unittest import mock
+
 from django.test import TestCase, override_settings
 
 from audio.models import Track
+from audio.tests.media import TempMediaMixin
 from audio.tests.signals import SR, chord, click_track, sine, to_wav_bytes
+from audio.tests.test_beatgrid import circular_error
 
 ANALYZE = '/api/audio/analyze'
 TRACKS = '/api/audio/tracks'
@@ -22,7 +26,7 @@ def wav(y, sr=SR, nombre='tema.wav'):
     return SimpleUploadedFile(nombre, to_wav_bytes(y, sr), content_type='audio/wav')
 
 
-class AnalyzeTrackViewTests(TestCase):
+class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
     def subir(self, archivo, **extra):
         return self.client.post(ANALYZE, {'file': archivo, **extra})
 
@@ -97,8 +101,78 @@ class AnalyzeTrackViewTests(TestCase):
     def test_get_devuelve_405(self):
         self.assertEqual(self.client.get(ANALYZE).status_code, 405)
 
+    def test_guarda_el_audio_original_para_poder_reproducirlo(self):
+        original = to_wav_bytes(cancion(bpm=124))
 
-class TrackQueryViewTests(TestCase):
+        response = self.subir(SimpleUploadedFile('tema.wav', original, content_type='audio/wav'))
+
+        track = Track.objects.get(pk=response.json()['id'])
+        self.assertTrue(track.audio_file)
+        with track.audio_file.open('rb') as archivo:
+            self.assertEqual(archivo.read(), original)
+        self.assertTrue(response.json()['hasAudio'])
+
+    def test_un_audio_que_no_se_pudo_analizar_no_deja_archivos_guardados(self):
+        import os
+        from django.conf import settings
+        carpeta = os.path.join(settings.MEDIA_ROOT, 'tracks')
+        # La carpeta temporal se comparte entre las pruebas de la clase: se compara antes y despues.
+        antes = sorted(os.listdir(carpeta)) if os.path.exists(carpeta) else []
+
+        self.subir(wav(sine(440, 1.0)))
+
+        despues = sorted(os.listdir(carpeta)) if os.path.exists(carpeta) else []
+        self.assertEqual(despues, antes)
+        self.assertEqual(Track.objects.count(), 0)
+
+
+class VocalAnalysisViewTests(TempMediaMixin, TestCase):
+    def crear(self, **cambios):
+        datos = dict(title='x', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+        datos.update(cambios)
+        return Track.objects.create(**datos)
+
+    def test_subir_una_pista_pide_analizar_su_voz_y_responde_con_el_estado(self):
+        def pedir(track):
+            track.vocal_status = Track.VOCALS_PENDING
+            track.save(update_fields=['vocal_status'])
+            return track.vocal_status
+
+        with mock.patch('audio.views.request_vocal_analysis', side_effect=pedir) as pedido:
+            response = self.client.post(ANALYZE, {'file': wav(cancion(bpm=124))})
+
+        self.assertEqual(response.status_code, 201)
+        pedido.assert_called_once()
+        self.assertEqual(response.json()['vocals']['status'], 'pending')
+
+    def test_pedir_el_analisis_de_voz_de_una_pista_existente(self):
+        pista = self.crear()
+
+        with mock.patch('audio.views.request_vocal_analysis', return_value='pending') as pedido,                 mock.patch('audio.views.is_available', return_value=True):
+            response = self.client.post(f'{TRACKS}/{pista.id}/vocals')
+
+        self.assertEqual(response.status_code, 202)
+        pedido.assert_called_once_with(pista)
+
+    def test_sin_el_modelo_instalado_responde_503_y_lo_explica(self):
+        pista = self.crear()
+
+        with mock.patch('audio.views.is_available', return_value=False):
+            response = self.client.post(f'{TRACKS}/{pista.id}/vocals')
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('requirements-vocals.txt', response.json()['error'])
+
+    def test_pista_inexistente_devuelve_404(self):
+        self.assertEqual(self.client.post(f'{TRACKS}/9999/vocals').status_code, 404)
+
+    def test_solo_acepta_post(self):
+        pista = self.crear()
+
+        self.assertEqual(self.client.get(f'{TRACKS}/{pista.id}/vocals').status_code, 405)
+
+
+class TrackQueryViewTests(TempMediaMixin, TestCase):
     def crear(self, titulo, **cambios):
         datos = dict(title=titulo, duration=200.0, bpm=128.0, key='C major', camelot='8B',
                      energy=0.5, cue_points=[0.0, 30.0])
@@ -139,3 +213,102 @@ class TrackQueryViewTests(TestCase):
 
     def test_post_en_el_listado_devuelve_405(self):
         self.assertEqual(self.client.post(TRACKS).status_code, 405)
+
+
+class TrackFileViewTests(TempMediaMixin, TestCase):
+    def crear_con_audio(self, contenido=b'RIFFdatos', nombre='tema.wav'):
+        track = Track.objects.create(
+            title=nombre, duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
+        track.audio_file.save(nombre, SimpleUploadedFile(nombre, contenido))
+        return track
+
+    def test_devuelve_el_audio_guardado(self):
+        track = self.crear_con_audio(b'RIFFdatos')
+
+        response = self.client.get(f'{TRACKS}/{track.id}/file')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(b''.join(response.streaming_content), b'RIFFdatos')
+
+    def test_el_tipo_de_contenido_depende_de_la_extension(self):
+        casos = {'tema.wav': 'audio/', 'tema.mp3': 'audio/mpeg', 'tema.flac': 'audio/'}
+        for nombre, esperado in casos.items():
+            with self.subTest(nombre=nombre):
+                track = self.crear_con_audio(nombre=nombre)
+
+                response = self.client.get(f'{TRACKS}/{track.id}/file')
+
+                self.assertTrue(response['Content-Type'].startswith(esperado), response['Content-Type'])
+
+    def test_indica_la_longitud_para_poder_mostrar_progreso_de_descarga(self):
+        track = self.crear_con_audio(b'12345')
+
+        response = self.client.get(f'{TRACKS}/{track.id}/file')
+
+        self.assertEqual(response['Content-Length'], '5')
+
+    def test_pista_inexistente_devuelve_404(self):
+        self.assertEqual(self.client.get(f'{TRACKS}/9999/file').status_code, 404)
+
+    def test_pista_sin_audio_devuelve_404_con_mensaje(self):
+        track = Track.objects.create(
+            title='sin audio', duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+
+        response = self.client.get(f'{TRACKS}/{track.id}/file')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn('audio', response.json()['error'].lower())
+
+    def test_si_el_archivo_se_borro_del_disco_devuelve_404(self):
+        track = self.crear_con_audio()
+        track.audio_file.delete(save=False)
+        track.audio_file.name = 'tracks/borrado.wav'
+        track.save()
+
+        self.assertEqual(self.client.get(f'{TRACKS}/{track.id}/file').status_code, 404)
+
+    def test_post_devuelve_405(self):
+        track = self.crear_con_audio()
+
+        self.assertEqual(self.client.post(f'{TRACKS}/{track.id}/file').status_code, 405)
+
+    def test_el_detalle_incluye_la_rejilla_de_pulsos(self):
+        sin_rejilla = Track.objects.create(
+            title='x', duration=1.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+        con_rejilla = Track.objects.create(
+            title='y', duration=300.0, bpm=110.0, key='C major', camelot='8B', energy=0.5,
+            grid_offset=0.0239, grid_downbeat=0.5844, grid_confidence=0.585)
+
+        self.assertIsNone(self.client.get(f'{TRACKS}/{sin_rejilla.id}').json()['grid'])
+        self.assertEqual(self.client.get(f'{TRACKS}/{con_rejilla.id}').json()['grid'],
+                         {'offset': 0.0239, 'downbeat': 0.5844, 'confidence': 0.585})
+
+    def test_subir_una_pista_con_ritmo_guarda_su_rejilla(self):
+        response = self.client.post(ANALYZE, {'file': wav(click_track(110.0, 30, first_beat=0.2))})
+
+        cuerpo = response.json()
+        self.assertEqual(response.status_code, 201)
+        # Con solo 30 s de audio el tempo se afina a unas centesimas: en una cancion entera, a menos.
+        self.assertAlmostEqual(cuerpo['bpm'], 110.0, delta=0.06)
+        self.assertIsNotNone(cuerpo['grid'])
+        self.assertLess(abs(circular_error(cuerpo['grid']['offset'], 0.2, 60 / 110)), 0.006)
+
+    def test_el_detalle_incluye_el_estado_del_analisis_de_voz(self):
+        sin_analizar = Track.objects.create(
+            title='x', duration=1.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+        analizada = Track.objects.create(
+            title='y', duration=300.0, bpm=128.0, key='C major', camelot='8B', energy=0.5,
+            vocal_status=Track.VOCALS_DONE, vocal_last_end=290.5)
+
+        self.assertEqual(self.client.get(f'{TRACKS}/{sin_analizar.id}').json()['vocals'],
+                         {'status': 'none', 'lastEnd': None})
+        self.assertEqual(self.client.get(f'{TRACKS}/{analizada.id}').json()['vocals'],
+                         {'status': 'done', 'lastEnd': 290.5})
+
+    def test_el_detalle_indica_si_la_pista_tiene_audio(self):
+        con_audio = self.crear_con_audio()
+        sin_audio = Track.objects.create(
+            title='x', duration=1.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+
+        self.assertTrue(self.client.get(f'{TRACKS}/{con_audio.id}').json()['hasAudio'])
+        self.assertFalse(self.client.get(f'{TRACKS}/{sin_audio.id}').json()['hasAudio'])

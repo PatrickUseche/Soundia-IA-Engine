@@ -54,6 +54,14 @@ class FindCuePointsTests(SimpleTestCase):
         fuerte = click_track(self.BPM, compases_fuertes * 2, amplitude=0.9)
         return np.concatenate([suave, fuerte])
 
+    def test_los_cues_se_anclan_al_primer_tiempo_que_se_les_indica(self):
+        # Compases de 2 s con el primer tiempo en el segundo 1.0, sin importar donde suene el primer golpe.
+        cues = find_cue_points(self.pista(8, 12), SR, self.BPM, first_beat=1.0)
+
+        self.assertEqual(cues[0], 1.0)
+        for cue in cues:
+            self.assertAlmostEqual((cue - 1.0) % 2.0, 0.0, places=3)
+
     def test_siempre_incluye_el_inicio_de_la_musica(self):
         cues = find_cue_points(click_track(self.BPM, 20), SR, self.BPM)
 

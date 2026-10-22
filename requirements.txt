@@ -1,3 +1,5 @@
 Django>=6.1,<6.2
 librosa>=1.0,<2
 soundfile>=0.13
+numpy>=2
+gunicorn>=23

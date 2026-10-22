@@ -23,20 +23,23 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 ## Fase 3 — Motor de mezcla
 
-- [ ] feat(mix): estrategia de compatibilidad armónica y de BPM para elegir la siguiente pista [3.1]
-- [ ] feat(mix): estrategia de transición con curvas de EQ y crossfade [3.2]
-- [ ] feat(mix): ajuste de tempo para beatmatching [3.3]
-- [ ] feat(api): endpoint de siguiente pista y plan de transición [3.4]
+- [x] feat(mix): estrategia de compatibilidad armónica y de BPM para elegir la siguiente pista [3.1]
+- [x] feat(mix): estrategia de transición con curvas de EQ y crossfade [3.2]
+- [x] feat(mix): ajuste de tempo para beatmatching [3.3]
+- [x] feat(api): endpoint de siguiente pista y plan de transición [3.4]
 
 ## Fase 4 — IA real
 
-- [ ] feat(ml): extraer dataset desde AiDecisionLog y las sesiones de Spring [4.1]
-- [ ] feat(ml): recomendador de pistas con embeddings [4.2]
-- [ ] feat(ml): estrategia de mezcla basada en modelo entrenado, intercambiable por Strategy [4.3]
-- [ ] feat(ml): evaluación y versionado del modelo [4.4]
+- [x] feat(ml): el dataset son las valoraciones del DJ de cada transición (me gustó / no me gustó) con sus puntuaciones, y no AiDecisionLog: ese registro no dice si una decisión fue buena [4.1]
+- [x] feat(ml): aprender cuándo mezclar a partir de las veces que el DJ pide mezclar antes de lo planeado [4.5]
+- [x] feat(audio): detectar dónde acaba la voz en el final de la pista (Demucs, opcional, en segundo plano) para no cortar la letra al mezclar [4.6]
+- [x] feat(audio): rejilla de pulsos (tempo afinado, fase y primer tiempo del compás) para mezclar a compás [4.7]
+- [ ] feat(ml): recomendador de pistas con embeddings (pendiente: no hay datos suficientes para entrenarlos; primero hace falta acumular valoraciones y escuchas) [4.2]
+- [x] feat(ml): puntuación de compatibilidad con pesos aprendidos por regresión logística, que reemplazan a los fijos 45/40/15 [4.3]
+- [x] feat(ml): evaluación (validación cruzada) y versionado de los pesos aprendidos [4.4] (sin historial ni vuelta atrás: solo se rechazan los pesos peores)
 
 ## Fase 5 — Despliegue
 
 - [ ] chore(db): pasar de SQLite a PostgreSQL [5.1]
-- [ ] chore(docker): Dockerfile del motor [5.2]
+- [x] chore(docker): Dockerfile del motor [5.2] (escrito pero sin probar: no hay Docker en la máquina de desarrollo)
 - [x] chore(ci): pipeline de GitHub Actions con tests [5.3]

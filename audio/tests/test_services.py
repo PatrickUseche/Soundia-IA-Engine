@@ -13,6 +13,7 @@ from audio.services import (
     load_audio,
 )
 from audio.tests.signals import SR, chord, click_track, sine, to_wav_bytes
+from audio.tests.test_beatgrid import circular_error, kick_pattern
 
 
 def cancion_de_prueba(bpm=120, seconds=40):
@@ -74,6 +75,35 @@ class AnalyzeSignalTests(SimpleTestCase):
         self.assertAlmostEqual(analisis.duration, 40, delta=0.1)
         self.assertGreaterEqual(len(analisis.cue_points), 1)
         self.assertAlmostEqual(analisis.cue_points[0], 0, delta=0.2)
+
+    def test_devuelve_la_rejilla_de_pulsos_con_el_tempo_afinado(self):
+        analisis = analyze_signal(click_track(110.0, 40, first_beat=0.2), SR)
+
+        self.assertAlmostEqual(analisis.bpm, 110.0, delta=0.02)
+        self.assertIsNotNone(analisis.grid_offset)
+        self.assertLess(abs(circular_error(analisis.grid_offset, 0.2, 60 / 110)), 0.005)
+
+    def test_con_un_primer_tiempo_claro_los_cues_se_anclan_a_el(self):
+        # Bombos a 100 BPM (compas de 2.4 s) con el tiempo fuerte en el tercer pulso: el primer tiempo es 1.5 s.
+        analisis = analyze_signal(kick_pattern(100, 40, 0.3, strong_beat=2), SR)
+
+        self.assertAlmostEqual(analisis.grid_downbeat, 1.5, delta=0.01)
+        self.assertGreater(analisis.grid_confidence, 0.3)
+        self.assertAlmostEqual(analisis.cue_points[0], 1.5, delta=0.01)
+
+    def test_si_no_se_sabe_cual_es_el_primer_tiempo_los_cues_siguen_el_primer_pulso(self):
+        analisis = analyze_signal(click_track(100, 40, first_beat=0.3), SR)
+
+        self.assertLess(analisis.grid_confidence, 0.2)
+        self.assertAlmostEqual(analisis.cue_points[0], 0.3, delta=0.01)
+
+    def test_sin_ritmo_no_hay_rejilla_y_se_usa_el_tempo_de_antes(self):
+        analisis = analyze_signal(sine(440, 20), SR)
+
+        self.assertIsNone(analisis.grid_offset)
+        self.assertIsNone(analisis.grid_downbeat)
+        self.assertIsNone(analisis.grid_confidence)
+        self.assertGreaterEqual(analisis.bpm, 70)
 
     def test_los_cues_vienen_ordenados(self):
         analisis = analyze_signal(cancion_de_prueba(bpm=128, seconds=60), SR)
