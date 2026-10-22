@@ -43,3 +43,12 @@ Al terminarla se marca `[x]` en ese mismo commit.
 - [ ] chore(db): pasar de SQLite a PostgreSQL [5.1]
 - [x] chore(docker): Dockerfile del motor [5.2] (escrito pero sin probar: no hay Docker en la máquina de desarrollo)
 - [x] chore(ci): pipeline de GitHub Actions con tests [5.3]
+
+## Fase 6 — Pendiente
+
+- [ ] feat(audio): detectar el primer tiempo (downbeat) real del compás; hoy es una heurística y en ritmos con el bombo en todos los pulsos la confianza es baja [6.1]
+- [ ] feat(audio): analizar también el inicio de la pista (voz y punto de entrada) para elegir dónde entra la pista B [6.2]
+- [ ] feat(mix): que el estilo blend (tempos igualados) use la información de voz [6.3]
+- [ ] feat(audio): soportar tempo variable y analizar más de los primeros 10 minutos [6.4]
+- [ ] feat(ml): historial de versiones de los pesos con vuelta atrás, y una forma de reiniciar lo aprendido del momento de mezcla [6.5]
+- [ ] test(audio): validar el análisis y el aprendizaje con música y valoraciones reales, no sintéticas [6.6]
