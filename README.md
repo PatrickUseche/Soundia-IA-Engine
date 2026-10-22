@@ -35,6 +35,7 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 | `AUDIO_MAX_UPLOAD_BYTES` | `52428800` (50 MB) | Tamaño máximo de un audio subido |
 | `MEDIA_ROOT` | `media/` | Carpeta donde se guardan los audios subidos (ignorada por git) |
 | `VOCAL_ANALYSIS` | `auto` | Detección de voz: `auto` la hace si `requirements-vocals.txt` está instalado; `off` la desactiva |
+| `VOCAL_ANALYSIS_START` | `off` | `on` hace que, además del final, se analice el inicio de la pista (dónde empieza la voz). Viene apagado: duplica el tiempo del análisis y su pico de memoria no se pudo medir (ver Detección de voz) |
 | `VOCAL_TORCH_THREADS` | `2` | Hilos de CPU del modelo de separación de voz |
 | `VOCAL_ANALYSIS_TIMEOUT` | `1800` | Segundos que se le dan a un análisis de voz antes de darlo por colgado |
 
@@ -122,7 +123,7 @@ ruidosa (con 10-20 cada grupo de prueba tiene 2-4 ejemplos). Se probó solo con 
 | `POST` | `/api/audio/analyze` | `multipart/form-data` con `file` (WAV, FLAC, OGG o MP3) y `title` opcional. Analiza y guarda la pista. |
 | `GET` | `/api/audio/tracks` | Las 50 pistas más recientes. |
 | `GET` | `/api/audio/tracks/<id>` | Detalle de una pista (incluye `hasAudio`). |
-| `POST` | `/api/audio/tracks/<id>/vocals` | Pide analizar la voz del final de una pista ya guardada (en segundo plano; 202). 503 si el modelo no está instalado. |
+| `POST` | `/api/audio/tracks/<id>/vocals` | Pide analizar la voz del final y del inicio de una pista ya guardada (en segundo plano; 202). 503 si el modelo no está instalado. |
 | `GET` | `/api/audio/tracks/<id>/file` | El audio original, para reproducirlo en los decks. 404 si la pista no tiene audio o el archivo ya no está. |
 
 Respuesta de `analyze` (201):
@@ -132,7 +133,7 @@ Respuesta de `analyze` (201):
   "id": 1, "title": "tema.wav", "duration": 215.3,
   "bpm": 127.98, "key": "A minor", "camelot": "8A", "energy": 0.62,
   "cuePoints": [0.4, 30.4, 60.4, 180.4], "hasAudio": true, "createdAt": "2026-10-21T18:30:00+00:00",
-  "vocals": {"status": "pending", "lastEnd": null},
+  "vocals": {"status": "pending", "lastEnd": null, "firstStart": null},
   "grid": {"offset": 0.0375, "downbeat": 0.583, "confidence": 0.59}
 }
 ```
@@ -172,11 +173,17 @@ caen en `offset + k · 60/bpm`. `grid` es `null` si la pista no tiene un ritmo c
 
 ### Detección de voz (opcional)
 
-Para no cortar la letra de la pista que sale, el motor puede saber **dónde acaba la última frase cantada**.
-Se separa la voz de los últimos 60 s de la pista con Demucs (`htdemucs`) y se mide su energía
-(`audio/separator.py`, `audio/vocals.py`). Con eso, el fundido (cuando los tempos no se pueden igualar) empieza
-1 s después de la última frase si queda cola instrumental; si la voz llega hasta el final, sigue empezando
-al final de la canción.
+Para no cortar la letra de la pista que sale ni pisarla con la de la que entra, el motor puede saber **dónde acaba la
+última frase cantada** (`lastEnd`) y **dónde empieza la primera** (`firstStart`). Se separa la voz de los últimos 60 s
+y, si se enciende `VOCAL_ANALYSIS_START=on`, de los primeros 60 s de la pista con Demucs (`htdemucs`) y se mide su
+energía (`audio/separator.py`, `audio/vocals.py`); las dos ventanas se separan una después de otra, así que el pico de
+memoria debería ser el de una sola. Con eso:
+
+- El fundido (cuando los tempos no se pueden igualar) empieza 1 s después de la última frase de la pista que sale si
+  queda cola instrumental; si la voz llega hasta el final, sigue empezando al final de la canción.
+- En una mezcla con los tempos igualados (`blend`), el solape se acorta (de 16 a 8 o a 4 compases) si la voz de la pista
+  que entra empezaría antes de que acabe: `plan.bars` y `plan.seconds` ya vienen ajustados (`fit_bars_to_intro`). Si ni
+  4 compases caben en su intro, se queda con 4: menos de eso ya no es una mezcla.
 
 - **Instalar:** `pip install -r requirements-vocals.txt` (~750 MB; el modelo, ~80 MB, se descarga la primera vez).
   Sin eso todo funciona igual y las pistas quedan con `vocals.status = "unavailable"`.
@@ -184,10 +191,15 @@ al final de la canción.
   **proceso aparte** (`audio/vocal_worker.py`): en un equipo con poca RAM, PyTorch puede acabar en un fallo nativo
   de memoria, y así solo falla esa pista (queda `failed`) en vez de caerse el servidor. Para las ya guardadas:
   `python manage.py analyze_vocals` (o `--all` para repetirlo) o `POST /api/audio/tracks/<id>/vocals`.
-- **Coste medido** en un Ryzen 3 3250U (2 núcleos, 3,4 GB de RAM, sin GPU): unos 3 min por pista, con la CPU
+- **Análisis del inicio: sin medir y apagado por defecto.** Se intentó medir su tiempo y su pico de memoria con una
+  pista real y el sistema (Ryzen 3 3250U, 3,4 GB de RAM) llegó a quedarse sin memoria y detuvo la prueba, así que no
+  hay cifras. Antes de encenderlo conviene cerrar otros programas y probar con una sola pista (`python manage.py
+  analyze_vocals`). Calcula la ventana del final y la del inicio por separado; si falta la memoria, solo falla ese análisis.
+- **Coste medido del final** en un Ryzen 3 3250U (2 núcleos, 3,4 GB de RAM, sin GPU): unos 3 min por pista, con la CPU
   ocupada, y un pico de unos 750 MB de RAM en el proceso del análisis. Estados de `vocals.status`: `none`, `pending`, `running`, `done`, `failed`, `unavailable`.
-- **Qué no hace:** solo mira el final de la pista (no el inicio), y con mezclas de tempos igualados
-  (`blend`) la salida sigue yendo a un cue sin tener en cuenta la voz.
+- **Qué no hace:** solo mira los extremos de la pista (60 s de cada lado), y con mezclas de tempos igualados
+  (`blend`) el punto de **salida** sigue yendo a un cue sin tener en cuenta la voz de la pista que sale (la de la que
+  entra sí se tiene en cuenta). El punto de entrada de la pista B sigue siendo su primer cue.
 
 ### Limitaciones conocidas
 
