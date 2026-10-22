@@ -1,7 +1,9 @@
 import numpy as np
 from django.test import SimpleTestCase
 
-from audio.beatgrid import EARLY_BEAT_TOLERANCE_SECONDS, MIN_BEAT_STRENGTH, estimate_grid
+from audio.beatgrid import (
+    EARLY_BEAT_TOLERANCE_SECONDS, MIN_BEAT_STRENGTH, downbeat_from_choice, estimate_grid,
+)
 from audio.tests.signals import SR, click_track, sine
 
 
@@ -114,3 +116,41 @@ class DownbeatTests(SimpleTestCase):
         rejilla = estimate_grid(click_track(100, 60, first_beat=0.3), SR, bpm_hint=100)
 
         self.assertLess(rejilla.downbeat_confidence, 0.15)
+
+
+class DownbeatFromChoiceTests(SimpleTestCase):
+    # 120 BPM: pulso de 0.5 s, compas de 2 s; el primer pulso cae en 0.1.
+    OFFSET, BPM = 0.1, 120.0
+
+    def test_un_instante_sobre_un_pulso_es_ese_pulso_reducido_al_primer_compas(self):
+        self.assertAlmostEqual(downbeat_from_choice(self.OFFSET, self.BPM, 4.1), 0.1, places=4)   # 2 compases despues
+        self.assertAlmostEqual(downbeat_from_choice(self.OFFSET, self.BPM, 4.6), 0.6, places=4)   # el segundo pulso
+        self.assertAlmostEqual(downbeat_from_choice(self.OFFSET, self.BPM, 5.1), 1.1, places=4)   # el tercero
+
+    def test_se_ajusta_al_pulso_mas_cercano(self):
+        self.assertAlmostEqual(downbeat_from_choice(self.OFFSET, self.BPM, 4.62), 0.6, places=4)
+        self.assertAlmostEqual(downbeat_from_choice(self.OFFSET, self.BPM, 4.84), 0.6, places=4)   # 0.24 de 4.6, 0.26 de 5.1
+        self.assertAlmostEqual(downbeat_from_choice(self.OFFSET, self.BPM, 4.86), 1.1, places=4)
+
+    def test_un_instante_antes_del_primer_pulso_se_ajusta_a_el(self):
+        self.assertAlmostEqual(downbeat_from_choice(self.OFFSET, self.BPM, 0.0), 0.1, places=4)
+
+    def test_con_un_primer_pulso_ligeramente_negativo_se_conserva(self):
+        self.assertAlmostEqual(downbeat_from_choice(-0.01, self.BPM, 0.0), -0.01, places=4)
+
+    def test_el_resultado_siempre_cae_en_la_rejilla_y_dentro_del_primer_compas(self):
+        periodo, compas = 60.0 / self.BPM, 4 * 60.0 / self.BPM
+        for decimas in range(0, 6000, 7):
+            resultado = downbeat_from_choice(self.OFFSET, self.BPM, decimas / 100)
+            self.assertGreaterEqual(resultado, -EARLY_BEAT_TOLERANCE_SECONDS - 1e-9)
+            self.assertLess(resultado, compas - EARLY_BEAT_TOLERANCE_SECONDS + 1e-9)
+            pulsos = (resultado - self.OFFSET) / periodo
+            self.assertAlmostEqual(pulsos, round(pulsos), places=3)
+
+    def test_no_cambia_la_fase_de_los_pulsos(self):
+        # Con otro tempo y otro offset: el resultado sigue en la rejilla `offset + k * periodo`.
+        offset, bpm = 0.2337, 127.43
+        periodo = 60.0 / bpm
+        for elegido in (3.3, 17.77, 90.01):
+            pulsos = (downbeat_from_choice(offset, bpm, elegido) - offset) / periodo
+            self.assertAlmostEqual(pulsos, round(pulsos), places=3)
