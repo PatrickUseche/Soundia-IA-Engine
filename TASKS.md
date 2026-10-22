@@ -60,3 +60,21 @@ Encontrado al probar el sistema completo en un navegador real (2026-10-22); nada
 
 - [ ] chore(deploy): con `DJANGO_DEBUG=False` hacen falta `DJANGO_SECRET_KEY` y `DJANGO_ALLOWED_HOSTS` con los nombres reales; no publicar el puerto 8000 (este servicio no tiene autenticación y solo debe verlo el API Gateway) [7.1]
 - [ ] chore(deploy): decidir si el análisis de voz (Demucs, ~800 MB de RAM por análisis) se ejecuta en el servidor o se apaga con `VOCAL_ANALYSIS=off`; en un equipo con 4 GB satura la memoria [7.2]
+
+## Fase 8 — Aprender el estilo de un DJ profesional (en curso)
+
+Plan acordado con el usuario (2026-10-22): un solo DJ por ahora (el usuario maneja el sistema), géneros variados (merengue,
+bachata, salsa, despecho, discobar), primero «cuándo y cómo mezclar», datos guardados en el equipo. El DJ aparece con un
+alias. Antes de entrenar, un DJ debe escuchar las mezclas del Auto-DJ ([6.10]) y revisar sus transiciones.
+
+- [x] feat(ml): almacén de grabaciones de mezclas (`MixRecording`) con foto de las pistas, validación y rasgos derivados [8.1]
+- [ ] feat(ml): comando para exportar y restaurar las grabaciones en un archivo JSON (copia de seguridad) [8.2]
+- [ ] feat(tracks): ruta de reenvío `/api/v1/recordings` en Spring [8.3]
+- [ ] feat(learning): modo aprendizaje en Angular que graba las transiciones manuales (entrada de B, solape y curvas) [8.4]
+- [ ] feat(learning): pantalla para revisar las grabaciones (buena, descartada, notas) [8.5]
+- [ ] feat(tracks): género de cada pista, editable, como dato de contexto del estilo [8.6]
+- [ ] feat(audio): tempo variable (salsa y merengue en vivo lo mueven); es la [6.4], que sube de prioridad [8.7]
+- [ ] feat(ml): modelo de parámetros de transición (medianas por contexto, luego regresión regularizada hacia las reglas) y su evaluación contra las reglas actuales [8.8]
+- [ ] feat(ml): usar el modelo en el plan de transición solo si gana a las reglas, con interruptor y vuelta atrás [8.9]
+- [ ] chore(demo): modo de datos reales en el script de arranque (carpeta fija en lugar de la temporal) [8.10]
+- [ ] feat(ml): modelo de qué pista sigue, a partir de las secuencias reales (después de lo anterior) [8.11]

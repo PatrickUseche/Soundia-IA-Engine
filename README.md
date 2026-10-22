@@ -116,6 +116,31 @@ borrar también las valoraciones (`--forget-ratings`).
 **Limitaciones:** es un modelo muy pequeño (tres números); no hay embeddings de pistas. Con pocas valoraciones la medición es
 ruidosa (con 10-20 cada grupo de prueba tiene 2-4 ejemplos). Se probó solo con valoraciones sintéticas: falta ver cómo se comporta con un DJ real.
 
+### Grabaciones de mezclas (`mixing`)
+
+Para aprender el estilo de un DJ (cuándo sale, cuándo entra la siguiente, cuánto solapa, cómo mueve el crossfader y el
+EQ) hace falta guardar lo que hace de verdad. Cada **grabación** es una transición: el front la registra en el «modo
+aprendizaje» y aquí se valida, se guarda y se calculan sus rasgos.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/mix/recordings` | Guarda una transición. Cuerpo: `fromTrackId`, `toTrackId`, `mixOutAt` (segundo de A en que entra B), `mixInAt` (segundo de B desde el que suena), `overlapSeconds`, `pitchA`, `pitchB`; opcionales `source` (`manual` o `autodj`), `dj` (alias, nunca el nombre real), `genreA`, `genreB`, `notes` y `curves`. 201 con la grabación y sus rasgos; 400 si algo no es válido; 404 si falta una pista. |
+| `GET` | `/api/mix/recordings` | Las 200 más recientes sin las curvas, con `counts` por calidad. `?quality=good` filtra por `unreviewed`, `good` o `discard`. |
+| `GET` | `/api/mix/recordings/<id>` | Una grabación con sus curvas y la foto de las pistas. |
+| `PUT` | `/api/mix/recordings/<id>` | `{quality?, notes?}`: la revisión del DJ. Solo las `good` deberían usarse para entrenar. |
+| `DELETE` | `/api/mix/recordings/<id>` | La borra (204). |
+
+- **Curvas** (`curves`): pares `[segundo, valor 0-1]` con el segundo relativo a la entrada de B (de -1 a la duración del
+  solape + 1), hasta 200 puntos por curva: `crossfader` y, para cada deck (`a`, `b`), `volume`, `low`, `mid` y `high`.
+- **Foto de las pistas:** el servidor guarda los datos de las dos pistas tal como eran (tempo, Camelot, energía,
+  rejilla, voz) tomándolos de su base, nunca del cliente. Si luego se corrige una rejilla o se borra una pista, la
+  grabación no cambia.
+- **Rasgos derivados** (`features`): `overlapBars` (compases de solape al tempo al que sonaba A), `exitFromEnd`,
+  `exitFraction`, `exitAfterLastVocal`, `entryBarsFromDownbeat`, `entryBeforeFirstVocal`, `phaseErrorMs` (desfase de
+  pulsos al entrar B; positivo = B va por detrás), `tempoRatio`, `bpmDifference`, `keyDistance`, `energyDelta`,
+  `bassSwapAt` (fracción del solape en que quita los graves de A) y `crossfaderShape` (`corte`, `gradual` o `lento`). Lo
+  que no se puede calcular (sin rejilla, sin voz, sin curva) queda en `null`.
+
 ### Análisis de audio (`audio`)
 
 | Método | Ruta | Descripción |
