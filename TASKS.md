@@ -72,7 +72,7 @@ alias. Antes de entrenar, un DJ debe escuchar las mezclas del Auto-DJ ([6.10]) y
 - [ ] feat(tracks): ruta de reenvío `/api/v1/recordings` en Spring [8.3]
 - [ ] feat(learning): modo aprendizaje en Angular que graba las transiciones manuales (entrada de B, solape y curvas) [8.4]
 - [ ] feat(learning): pantalla para revisar las grabaciones (buena, descartada, notas) [8.5]
-- [ ] feat(tracks): género de cada pista, editable, como dato de contexto del estilo [8.6]
+- [x] feat(tracks): género de cada pista, editable, como dato de contexto del estilo (motor de IA; falta Spring y Angular) [8.6]
 - [ ] feat(audio): tempo variable (salsa y merengue en vivo lo mueven); es la [6.4], que sube de prioridad [8.7]
 - [ ] feat(ml): modelo de parámetros de transición (medianas por contexto, luego regresión regularizada hacia las reglas) y su evaluación contra las reglas actuales [8.8]
 - [ ] feat(ml): usar el modelo en el plan de transición solo si gana a las reglas, con interruptor y vuelta atrás [8.9]

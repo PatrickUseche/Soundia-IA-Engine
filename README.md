@@ -154,9 +154,10 @@ También por consola: `python manage.py recordings_backup --export copia.json` y
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `POST` | `/api/audio/analyze` | `multipart/form-data` con `file` (WAV, FLAC, OGG o MP3) y `title` opcional. Analiza y guarda la pista. |
+| `POST` | `/api/audio/analyze` | `multipart/form-data` con `file` (WAV, FLAC, OGG o MP3), `title` y `genre` opcionales. Analiza y guarda la pista. |
 | `GET` | `/api/audio/tracks` | Las pistas más recientes, hasta `TRACK_LIST_LIMIT` (200 por defecto). |
 | `GET` | `/api/audio/tracks/<id>` | Detalle de una pista (incluye `hasAudio`). |
+| `PUT` | `/api/audio/tracks/<id>` | `{genre}`: el género de la pista (merengue, bachata, salsa...). Se guarda sin espacios de más y en minúsculas; vacío lo quita; máximo 40 caracteres (400 si no es texto o es más largo). Devuelve la pista. Al grabar una mezcla, si el cliente no manda `genreA`/`genreB` se toma el género de cada pista. |
 | `DELETE` | `/api/audio/tracks/<id>` | Borra la pista y su audio (también del almacenamiento externo). 204; 404 si no existe; 502 si el almacenamiento falla (la pista se conserva para reintentar). Las grabaciones de mezclas que la usaron se conservan con la foto de sus datos. |
 | `PUT` | `/api/audio/tracks/<id>/grid` | `{downbeat}`: el DJ señala un instante (segundos) que es un «1» del compás. Se ajusta al pulso más cercano de la rejilla, queda como primer tiempo con `confidence` 1 y `grid.manual` verdadero; los pulsos y el tempo no cambian. 400 si el cuerpo o el instante no son válidos, 409 si la pista no tiene rejilla. |
 | `POST` | `/api/audio/tracks/<id>/vocals` | Pide analizar la voz del final y del inicio de una pista ya guardada (en segundo plano; 202). 503 si el modelo no está instalado. |
