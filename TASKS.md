@@ -88,3 +88,9 @@ Arquitectura acordada con el usuario (2026-10-24): Angular en Cloudflare Pages, 
 - [x] feat(storage): guardar los audios en un almacenamiento S3 (Supabase) y no depender del disco [9.3]
 - [x] chore(deploy): `render.yaml` y escuchar en el puerto `$PORT` [9.4]
 - [x] fix(audio): bajar el pico de memoria del análisis de ~880 MB a ~300 MB en una pista de 6 minutos (carga por bloques, STFT/CQT por tramos, tempo sobre el tramo más rítmico), porque en Render gratis (512 MB) el motor se caía al analizar [9.5]
+
+## Fase 10 — Aprender desde la nube con el repertorio del DJ (en curso)
+
+Acordado con el usuario (2026-10-24): el DJ usa la versión de la nube, por sesiones (sube las pistas de la sesión, mezcla con el modo aprendizaje y borra las pistas al terminar; las grabaciones se conservan). El almacenamiento gratuito de Supabase es de 1 GB.
+
+- [x] feat(tracks): borrar una pista y su audio (`DELETE /api/audio/tracks/<id>`) [10.1]

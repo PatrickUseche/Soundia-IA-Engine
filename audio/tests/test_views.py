@@ -217,6 +217,68 @@ class TrackQueryViewTests(TempMediaMixin, TestCase):
         self.assertEqual(self.client.post(TRACKS).status_code, 405)
 
 
+class BorrarPistaViewTests(TempMediaMixin, TestCase):
+    def crear_con_audio(self, nombre='tema.wav'):
+        track = Track.objects.create(
+            title=nombre, duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
+        track.audio_file.save(nombre, SimpleUploadedFile(nombre, b'RIFFdatos'))
+        return track
+
+    def test_borra_la_pista_y_su_audio(self):
+        track = self.crear_con_audio()
+        storage, nombre = track.audio_file.storage, track.audio_file.name
+        self.assertTrue(storage.exists(nombre))
+
+        response = self.client.delete(f'{TRACKS}/{track.id}')
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Track.objects.filter(pk=track.id).exists())
+        self.assertFalse(storage.exists(nombre))
+
+    def test_borra_una_pista_sin_audio(self):
+        track = Track.objects.create(
+            title='sin audio', duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+
+        self.assertEqual(self.client.delete(f'{TRACKS}/{track.id}').status_code, 204)
+        self.assertFalse(Track.objects.filter(pk=track.id).exists())
+
+    def test_pista_inexistente_devuelve_404(self):
+        self.assertEqual(self.client.delete(f'{TRACKS}/9999').status_code, 404)
+
+    def test_no_borra_las_demas_pistas(self):
+        borrada = self.crear_con_audio('a.wav')
+        otra = self.crear_con_audio('b.wav')
+
+        self.client.delete(f'{TRACKS}/{borrada.id}')
+
+        self.assertTrue(Track.objects.filter(pk=otra.id).exists())
+        self.assertTrue(otra.audio_file.storage.exists(otra.audio_file.name))
+
+    def test_si_falla_el_almacenamiento_conserva_la_pista_y_avisa(self):
+        track = self.crear_con_audio()
+
+        with mock.patch('django.db.models.fields.files.FieldFile.delete', side_effect=OSError('sin red')):
+            response = self.client.delete(f'{TRACKS}/{track.id}')
+
+        self.assertEqual(response.status_code, 502)
+        self.assertIn('error', response.json())
+        self.assertTrue(Track.objects.filter(pk=track.id).exists())
+
+    def test_no_exige_token_csrf(self):
+        from django.test import Client
+        track = self.crear_con_audio()
+
+        response = Client(enforce_csrf_checks=True).delete(f'{TRACKS}/{track.id}')
+
+        self.assertEqual(response.status_code, 204)
+
+    def test_otros_metodos_siguen_dando_405(self):
+        track = self.crear_con_audio()
+
+        self.assertEqual(self.client.post(f'{TRACKS}/{track.id}').status_code, 405)
+        self.assertEqual(self.client.put(f'{TRACKS}/{track.id}').status_code, 405)
+
+
 class TrackFileViewTests(TempMediaMixin, TestCase):
     def crear_con_audio(self, contenido=b'RIFFdatos', nombre='tema.wav'):
         track = Track.objects.create(
