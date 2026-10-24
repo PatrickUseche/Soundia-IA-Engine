@@ -197,6 +197,21 @@ class ParseRecordingTests(TestCase):
 
         self.assertEqual(campos['snapshot_a']['bpm'], 120.0)
 
+    def test_si_el_cliente_no_manda_el_genero_se_toma_el_de_cada_pista(self):
+        Track.objects.filter(pk=self.a.pk).update(genre='salsa')
+        Track.objects.filter(pk=self.b.pk).update(genre='merengue')
+
+        campos = parse_recording(self.cuerpo())
+
+        self.assertEqual((campos['genre_a'], campos['genre_b']), ('salsa', 'merengue'))
+
+    def test_el_genero_que_manda_el_cliente_tiene_prioridad(self):
+        Track.objects.filter(pk=self.a.pk).update(genre='salsa')
+
+        campos = parse_recording(self.cuerpo(genreA='bachata'))
+
+        self.assertEqual(campos['genre_a'], 'bachata')
+
     def test_valores_por_defecto(self):
         campos = parse_recording(self.cuerpo())
 
