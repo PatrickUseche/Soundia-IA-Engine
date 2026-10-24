@@ -333,6 +333,17 @@ class RecordingViewTests(TestCase):
         self.assertIn('curves', cuerpo)
         self.assertEqual(MixRecording.objects.count(), 1)
 
+    def test_borrar_una_pista_conserva_la_grabacion_con_la_foto_de_sus_datos(self):
+        pk = self.post().json()['id']
+
+        self.assertEqual(self.client.delete(f'/api/audio/tracks/{self.a.id}').status_code, 204)
+
+        grabacion = MixRecording.objects.get(pk=pk)
+        self.assertIsNone(grabacion.from_track)
+        self.assertEqual(grabacion.snapshot_a['camelot'], '8B')
+        self.assertEqual(grabacion.snapshot_a['bpm'], 120.0)
+        self.assertEqual(self.client.get(f'{RECORDINGS}/{pk}').status_code, 200)
+
     def test_guardar_con_datos_invalidos_devuelve_400_y_no_guarda_nada(self):
         for cuerpo in (self.cuerpo(overlapSeconds=0), self.cuerpo(source='robot'), {}):
             self.assertEqual(self.post(cuerpo).status_code, 400)

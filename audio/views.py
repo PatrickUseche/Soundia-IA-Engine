@@ -1,9 +1,10 @@
 import json
+import logging
 import math
 import os
 
 from django.conf import settings
-from django.http import FileResponse, JsonResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .analysis import AudioTooShortError, SilentAudioError
@@ -12,6 +13,8 @@ from .models import Track
 from .separator import is_available
 from .services import UnsupportedAudioError, analyze_file
 from .vocal_jobs import request_vocal_analysis
+
+logger = logging.getLogger(__name__)
 
 # Maximo de pistas que devuelve el listado.
 LIST_LIMIT = 50
@@ -101,14 +104,29 @@ def list_tracks(request):
     return JsonResponse({'tracks': [track_to_dict(track) for track in tracks]})
 
 
+@csrf_exempt
 def track_detail(request, pk):
-    if request.method != 'GET':
+    """GET: los datos de la pista. DELETE: la borra junto con su audio (las grabaciones de mezclas que la usaron se
+    conservan: guardan una foto de sus datos)."""
+    if request.method not in ('GET', 'DELETE'):
         return JsonResponse({'error': 'Metodo no permitido'}, status=405)
     try:
         track = Track.objects.get(pk=pk)
     except Track.DoesNotExist:
         return JsonResponse({'error': 'Pista no encontrada'}, status=404)
-    return JsonResponse(track_to_dict(track))
+    if request.method == 'GET':
+        return JsonResponse(track_to_dict(track))
+
+    # El audio se borra primero: si el almacenamiento falla, la pista sigue y se puede reintentar sin dejar un
+    # archivo huerfano ocupando espacio.
+    try:
+        if track.audio_file:
+            track.audio_file.delete(save=False)
+    except Exception:  # noqa: BLE001 - un almacenamiento externo puede fallar de muchas formas
+        logger.exception('No se pudo borrar el audio de la pista %s', pk)
+        return JsonResponse({'error': 'No se pudo borrar el audio de la pista. Intentalo de nuevo.'}, status=502)
+    track.delete()
+    return HttpResponse(status=204)
 
 
 @csrf_exempt
