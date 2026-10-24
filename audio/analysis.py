@@ -59,16 +59,62 @@ def refine_bpm(coarse_bpm: float, beat_times: np.ndarray) -> float:
     return float(60.0 * pulses.sum() / intervals.sum())
 
 
+# Las transformadas (STFT, CQT) de una pista entera piden cientos de MB: se calculan por tramos con un margen a cada
+# lado para que el borde no distorsione. Con 512 MB de memoria (servicios gratuitos) una pista de 6 minutos no cabia.
+ANALYSIS_HOP = 512
+ENVELOPE_CHUNK_FRAMES = 4096
+ENVELOPE_MARGIN_FRAMES = 16
+CHROMA_CHUNK_FRAMES = 1280
+CHROMA_MARGIN_FRAMES = 128
+
+
+def _chunked_frames(y: np.ndarray, chunk_frames: int, margin_frames: int, compute) -> list[np.ndarray]:
+    """Aplica `compute` (senal -> matriz de frames en la ultima dimension) por tramos y devuelve los frames de cada
+    tramo sin el margen. El frame i queda centrado en la muestra i * ANALYSIS_HOP, igual que sin tramos."""
+    chunk = chunk_frames * ANALYSIS_HOP
+    margin = margin_frames * ANALYSIS_HOP
+    parts = []
+    for start in range(0, len(y), chunk):
+        a = max(start - margin, 0)
+        b = min(start + chunk + margin, len(y))
+        frames = compute(y[a:b])
+        first = (start - a) // ANALYSIS_HOP
+        parts.append(frames[..., first:first + chunk_frames])
+    return parts
+
+
+def _onset_envelope(y: np.ndarray, sr: int) -> np.ndarray:
+    parts = _chunked_frames(
+        y, ENVELOPE_CHUNK_FRAMES, ENVELOPE_MARGIN_FRAMES,
+        lambda tramo: librosa.onset.onset_strength(y=tramo, sr=sr, hop_length=ANALYSIS_HOP))
+    return np.concatenate(parts)
+
+
+# El tempo global se estima sobre el tramo mas rítmico de la pista (el de mas ataques), no sobre toda: el tempograma
+# de una pista entera pide cientos de MB y el de unos 95 s alcanza (el tempo de una pista de baile no cambia).
+TEMPO_EXCERPT_FRAMES = 4096
+
+
+def _most_rhythmic_excerpt(envelope: np.ndarray, frames: int) -> np.ndarray:
+    """El tramo de `frames` frames con mayor fuerza de ataques total; la envolvente entera si es mas corta."""
+    if len(envelope) <= frames:
+        return envelope
+    sums = np.convolve(envelope, np.ones(frames), mode='valid')
+    start = int(np.argmax(sums))
+    return envelope[start:start + frames]
+
+
 def detect_bpm(y: np.ndarray, sr: int) -> float:
     """Tempo estimado en pulsos por minuto, dentro del rango de DJ."""
     validate_signal(y, sr)
-    onset_envelope = librosa.onset.onset_strength(y=y, sr=sr)
-    coarse = float(np.atleast_1d(librosa.feature.tempo(onset_envelope=onset_envelope, sr=sr))[0])
+    onset_envelope = _onset_envelope(y, sr)
+    excerpt = _most_rhythmic_excerpt(onset_envelope, TEMPO_EXCERPT_FRAMES)
+    coarse = float(np.atleast_1d(librosa.feature.tempo(onset_envelope=excerpt, sr=sr))[0])
     if coarse <= 0:
         raise ValueError("No se pudo estimar un tempo.")
 
     _, beat_times = librosa.beat.beat_track(
-        onset_envelope=onset_envelope, sr=sr, start_bpm=coarse, units='time')
+        onset_envelope=onset_envelope, sr=sr, bpm=coarse, units='time')
     return fold_bpm(refine_bpm(coarse, beat_times))
 
 
@@ -95,7 +141,10 @@ class KeyEstimate:
 def detect_key(y: np.ndarray, sr: int) -> KeyEstimate:
     """Tonalidad estimada comparando el cromagrama medio con los perfiles de las 24 tonalidades."""
     validate_signal(y, sr)
-    mean_chroma = librosa.feature.chroma_cqt(y=y, sr=sr).mean(axis=1)
+    parts = _chunked_frames(
+        y, CHROMA_CHUNK_FRAMES, CHROMA_MARGIN_FRAMES,
+        lambda tramo: librosa.feature.chroma_cqt(y=tramo, sr=sr, hop_length=ANALYSIS_HOP))
+    mean_chroma = np.concatenate(parts, axis=1).mean(axis=1)
     if np.std(mean_chroma) == 0:
         raise ValueError("No se pudo estimar la tonalidad: el audio no tiene contenido tonal.")
 
