@@ -68,7 +68,7 @@ bachata, salsa, despecho, discobar), primero «cuándo y cómo mezclar», datos 
 alias. Antes de entrenar, un DJ debe escuchar las mezclas del Auto-DJ ([6.10]) y revisar sus transiciones.
 
 - [x] feat(ml): almacén de grabaciones de mezclas (`MixRecording`) con foto de las pistas, validación y rasgos derivados [8.1]
-- [ ] feat(ml): comando para exportar y restaurar las grabaciones en un archivo JSON (copia de seguridad) [8.2]
+- [x] feat(ml): exportar y restaurar las grabaciones en un archivo JSON (copia de seguridad), por HTTP y por comando [8.2]
 - [ ] feat(tracks): ruta de reenvío `/api/v1/recordings` en Spring [8.3]
 - [ ] feat(learning): modo aprendizaje en Angular que graba las transiciones manuales (entrada de B, solape y curvas) [8.4]
 - [ ] feat(learning): pantalla para revisar las grabaciones (buena, descartada, notas) [8.5]

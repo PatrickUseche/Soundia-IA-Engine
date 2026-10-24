@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from audio.models import Track
 
 from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
+from .backup import export_recordings, import_recordings
 from .models import MixRecording
 from .recordings import QUALITIES, InvalidRecording, derive_features, parse_recording, parse_review
 from .timing import learned_advance, record_mix_timing, timing_count
@@ -299,6 +300,27 @@ def recordings(request):
         })
 
     return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+
+
+def recordings_export(request):
+    """GET: todas las grabaciones en un archivo JSON descargable (copia de seguridad)."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    response = JsonResponse(export_recordings(), json_dumps_params={'ensure_ascii': False})
+    response['Content-Disposition'] = 'attachment; filename="soundia-grabaciones.json"'
+    return response
+
+
+@csrf_exempt
+def recordings_import(request):
+    """POST: restaura las grabaciones de una copia exportada. Todo o nada; las que ya estan no se duplican."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    try:
+        created, skipped = import_recordings(_read_json_object(request))
+    except (BadRequest, InvalidRecording) as error:
+        return JsonResponse({'error': str(error)}, status=400)
+    return JsonResponse({'created': created, 'skipped': skipped}, status=201 if created else 200)
 
 
 @csrf_exempt
