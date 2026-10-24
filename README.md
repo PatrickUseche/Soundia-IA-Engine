@@ -31,6 +31,7 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 |---|---|---|
 | `DJANGO_DEBUG` | `True` | Modo debug |
 | `DJANGO_SECRET_KEY` | clave de desarrollo | Obligatoria si `DJANGO_DEBUG=False` |
+| `SERVICE_TOKEN` | vacía | Clave compartida con el API: si se define, el motor exige la cabecera `X-Soundia-Key` con ese valor y responde 401 a quien no la lleve. Obligatoria cuando el motor es accesible desde Internet (nube gratuita) |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts permitidos. En producción, solo el nombre con que lo llama el API (`ia-engine` en el compose) |
 | `AUDIO_MAX_UPLOAD_BYTES` | `52428800` (50 MB) | Tamaño máximo de un audio subido |
 | `MEDIA_ROOT` | `media/` | Carpeta donde se guardan los audios subidos (ignorada por git) |

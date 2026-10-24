@@ -47,6 +47,10 @@ AUDIO_MAX_UPLOAD_BYTES = int(os.environ.get('AUDIO_MAX_UPLOAD_BYTES', 50 * 1024 
 # (requirements-vocals.txt) y 'off' lo desactiva. En las pruebas esta siempre apagado.
 VOCAL_ANALYSIS = 'off' if 'test' in sys.argv else os.environ.get('VOCAL_ANALYSIS', 'auto')
 
+# Clave compartida con el API Gateway (ver soundia_ai/middleware.py). Vacia = el motor responde a todos; define una
+# clave larga y aleatoria cuando el motor sea accesible desde Internet.
+SERVICE_TOKEN = os.environ.get('SERVICE_TOKEN', '').strip()
+
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
@@ -70,6 +74,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'soundia_ai.middleware.ServiceTokenMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
