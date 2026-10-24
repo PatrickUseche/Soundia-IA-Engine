@@ -134,6 +134,10 @@ aprendizaje» y aquí se valida, se guarda y se calculan sus rasgos.
 | `GET` | `/api/mix/recordings/<id>` | Una grabación con sus curvas y la foto de las pistas. |
 | `PUT` | `/api/mix/recordings/<id>` | `{quality?, notes?}`: la revisión del DJ. Solo las `good` deberían usarse para entrenar. |
 | `DELETE` | `/api/mix/recordings/<id>` | La borra (204). |
+| `GET` | `/api/mix/recordings/export` | Copia de seguridad: todas las grabaciones, con la foto de sus pistas, en un JSON descargable (formato `soundia-recordings`, versión 1). No lleva los ids de las pistas, porque en otra base pueden ser distintos. |
+| `POST` | `/api/mix/recordings/import` | Restaura una copia exportada. Todo o nada (400 con la posición de la grabación inválida, sin guardar ninguna); las que ya están (mismo DJ, fecha y datos de la mezcla) no se duplican. Responde `{created, skipped}`. Las restauradas quedan sin pista enlazada. Tamaño máximo del cuerpo: 2,5 MB por defecto de Django. |
+
+También por consola: `python manage.py recordings_backup --export copia.json` y `--import copia.json`.
 
 - **Curvas** (`curves`): pares `[segundo, valor 0-1]` con el segundo relativo a la entrada de B (de -1 a la duración del
   solape + 1), hasta 200 puntos por curva: `crossfader` y, para cada deck (`a`, `b`), `volume`, `low`, `mid` y `high`.
