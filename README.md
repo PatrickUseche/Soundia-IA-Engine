@@ -31,10 +31,10 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 |---|---|---|
 | `DJANGO_DEBUG` | `True` | Modo debug |
 | `DJANGO_SECRET_KEY` | clave de desarrollo | Obligatoria si `DJANGO_DEBUG=False` |
-| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts permitidos |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts permitidos. En producción, solo el nombre con que lo llama el API (`ia-engine` en el compose) |
 | `AUDIO_MAX_UPLOAD_BYTES` | `52428800` (50 MB) | Tamaño máximo de un audio subido |
 | `MEDIA_ROOT` | `media/` | Carpeta donde se guardan los audios subidos (ignorada por git) |
-| `VOCAL_ANALYSIS` | `auto` | Detección de voz: `auto` la hace si `requirements-vocals.txt` está instalado; `off` la desactiva |
+| `VOCAL_ANALYSIS` | `auto` | Detección de voz: `auto` la hace si `requirements-vocals.txt` está instalado; `off` la desactiva (el `docker-compose.prod.yml` del API la apaga: gasta ~800 MB de RAM por análisis) |
 | `VOCAL_ANALYSIS_START` | `off` | `on` hace que, además del final, se analice el inicio de la pista (dónde empieza la voz). Viene apagado: duplica el tiempo del análisis y su pico de memoria no se pudo medir (ver Detección de voz) |
 | `VOCAL_TORCH_THREADS` | `2` | Hilos de CPU del modelo de separación de voz |
 | `VOCAL_ANALYSIS_TIMEOUT` | `1800` | Segundos que se le dan a un análisis de voz antes de darlo por colgado |

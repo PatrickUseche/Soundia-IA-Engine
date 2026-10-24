@@ -58,8 +58,8 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 Encontrado al probar el sistema completo en un navegador real (2026-10-22); nada de esto se ha hecho todavía.
 
-- [ ] chore(deploy): con `DJANGO_DEBUG=False` hacen falta `DJANGO_SECRET_KEY` y `DJANGO_ALLOWED_HOSTS` con los nombres reales; no publicar el puerto 8000 (este servicio no tiene autenticación y solo debe verlo el API Gateway) [7.1]
-- [ ] chore(deploy): decidir si el análisis de voz (Demucs, ~800 MB de RAM por análisis) se ejecuta en el servidor o se apaga con `VOCAL_ANALYSIS=off`; en un equipo con 4 GB satura la memoria [7.2]
+- [x] chore(deploy): con `DJANGO_DEBUG=False` hacen falta `DJANGO_SECRET_KEY` y `DJANGO_ALLOWED_HOSTS` con los nombres reales; no publicar el puerto 8000 (este servicio no tiene autenticación y solo debe verlo el API Gateway) [7.1] (resuelto en el `docker-compose.prod.yml` del API: sin puertos publicados y `VOCAL_ANALYSIS=off`)
+- [x] chore(deploy): decidir si el análisis de voz (Demucs, ~800 MB de RAM por análisis) se ejecuta en el servidor o se apaga con `VOCAL_ANALYSIS=off`; en un equipo con 4 GB satura la memoria [7.2] (resuelto en el `docker-compose.prod.yml` del API: sin puertos publicados y `VOCAL_ANALYSIS=off`)
 
 ## Fase 8 — Aprender el estilo de un DJ profesional (en curso)
 
