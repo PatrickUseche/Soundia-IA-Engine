@@ -95,3 +95,4 @@ Acordado con el usuario (2026-10-24): el DJ usa la versión de la nube, por sesi
 
 - [x] feat(tracks): borrar una pista y su audio (`DELETE /api/audio/tracks/<id>`) [10.1]
 - [x] feat(tracks): el listado de pistas llega a 200 (antes 50) y es configurable con `TRACK_LIST_LIMIT` [10.3]
+- [x] fix(audio): devolver al sistema la memoria de cada análisis (`malloc_trim`), `MALLOC_ARENA_MAX=2` y 2 hilos en Render, porque con varias pistas seguidas el motor se quedaba sin memoria [9.8]

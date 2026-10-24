@@ -7,7 +7,10 @@
 
 FROM python:3.12-slim
 
-ENV PYTHONUNBUFFERED=1 \
+# MALLOC_ARENA_MAX limita a 2 las zonas de memoria de glibc (una por hilo, por defecto): con varios hilos retienen mucha
+# memoria libre que no se devuelve al sistema.
+ENV MALLOC_ARENA_MAX=2 \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     # librosa usa numba, que compila en el primer uso: la cache va a un sitio con permiso de escritura.

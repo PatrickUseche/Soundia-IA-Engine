@@ -33,7 +33,7 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 | `DJANGO_SECRET_KEY` | clave de desarrollo | Obligatoria si `DJANGO_DEBUG=False` |
 | `DATABASE_URL` | vacía (SQLite) | `postgresql://usuario:clave@servidor/base?sslmode=require`: usa PostgreSQL (por ejemplo Neon) en lugar de SQLite, para que los datos sobrevivan a un disco efímero |
 | `S3_BUCKET` | vacía (disco) | Guarda los audios en un almacenamiento S3 (Supabase Storage, R2…) en lugar de `MEDIA_ROOT`. Con ella hacen falta también `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID` y `S3_SECRET_ACCESS_KEY` (y `S3_REGION`, por defecto `us-east-1`); si falta alguna el motor no arranca |
-| `PORT` / `WEB_CONCURRENCY` / `GUNICORN_THREADS` | `8000` / `2` / `1` | Solo en la imagen Docker: puerto de escucha (Render lo fija), procesos e hilos de gunicorn. En 512 MB de RAM: 1 proceso y 4 hilos |
+| `PORT` / `WEB_CONCURRENCY` / `GUNICORN_THREADS` | `8000` / `2` / `1` | Solo en la imagen Docker: puerto de escucha (Render lo fija), procesos e hilos de gunicorn. En 512 MB de RAM: 1 proceso y 2 hilos |
 | `TRACK_LIST_LIMIT` | `200` | Máximo de pistas que devuelve el listado de la biblioteca (las más recientes primero). |
 | `SERVICE_TOKEN` | vacía | Clave compartida con el API: si se define, el motor exige la cabecera `X-Soundia-Key` con ese valor y responde 401 a quien no la lleve. Obligatoria cuando el motor es accesible desde Internet (nube gratuita) |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts permitidos. En producción, solo el nombre con que lo llama el API (`ia-engine` en el compose) |
