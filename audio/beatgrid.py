@@ -145,8 +145,20 @@ def _smooth_circular(histogram: np.ndarray) -> np.ndarray:
     return np.roll(smoothed, -radius)
 
 
+# La correccion es una mediana: con el tramo central de la pista basta, y filtrar una pista entera en float64 pide
+# cientos de MB de memoria (los servicios gratuitos dan 512 MB).
+ATTACK_EXCERPT_SECONDS = 120.0
+# Pulsos que se miden a la vez al buscar el primer tiempo: acota la matriz de ventanas que se crea.
+DOWNBEAT_BATCH_BEATS = 128
+
+
 def _attack_correction(y: np.ndarray, sr: int, beat_times: np.ndarray) -> float:
     """Segundos que hay que mover la rejilla para que caiga sobre el inicio real de los golpes (mediana)."""
+    length = int(ATTACK_EXCERPT_SECONDS * sr)
+    if len(y) > length:
+        start = (len(y) - length) // 2
+        y = y[start:start + length]
+        beat_times = beat_times - start / sr
     sos = scipy_signal.butter(2, ATTACK_ENVELOPE_CUTOFF_HZ, 'low', fs=sr, output='sos')
     envelope = scipy_signal.sosfiltfilt(sos, np.abs(y))
     slope = np.diff(envelope, prepend=envelope[0])
@@ -172,8 +184,12 @@ def _downbeat(y: np.ndarray, sr: int, first_beat: float, period: float) -> tuple
     if valid.sum() < 2 * BEATS_PER_BAR:
         return 0, 0.0
     beat_index = np.arange(count)[valid]
-    windows = low[starts[valid][:, None] + np.arange(length)[None, :]]
-    accent = np.sqrt(np.mean(np.square(windows), axis=1))
+    valid_starts = starts[valid]
+    offsets = np.arange(length)[None, :]
+    accent = np.concatenate([
+        np.sqrt(np.mean(np.square(low[valid_starts[i:i + DOWNBEAT_BATCH_BEATS, None] + offsets]), axis=1))
+        for i in range(0, len(valid_starts), DOWNBEAT_BATCH_BEATS)
+    ])
 
     by_position = np.array([
         accent[beat_index % BEATS_PER_BAR == position].mean() if np.any(beat_index % BEATS_PER_BAR == position) else 0.0
