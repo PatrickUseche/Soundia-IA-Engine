@@ -1,6 +1,9 @@
 import io
 import wave
 
+from unittest import mock
+
+import librosa
 import numpy as np
 from django.test import SimpleTestCase
 
@@ -53,6 +56,26 @@ class LoadAudioTests(SimpleTestCase):
         y, _ = load_audio(io.BytesIO(wav_estereo(sine(440, 3), SR)))
 
         self.assertEqual(y.ndim, 1)
+
+    def test_la_carga_por_bloques_coincide_con_librosa(self):
+        # 25 s a 44.1 kHz en estereo: varios bloques de 10 s, con remuestreo.
+        y = cancion_de_prueba(bpm=120, seconds=25)
+        wav = wav_estereo(np.interp(np.arange(0, 25, 1 / 44100), np.arange(len(y)) / SR, y), 44100)
+
+        cargada, sr = load_audio(io.BytesIO(wav))
+        referencia, _ = librosa.load(io.BytesIO(wav), sr=TARGET_SAMPLE_RATE, mono=True)
+
+        self.assertEqual(sr, TARGET_SAMPLE_RATE)
+        self.assertEqual(cargada.dtype, np.float32)
+        self.assertAlmostEqual(len(cargada) / sr, len(referencia) / sr, delta=0.05)
+        n = min(len(cargada), len(referencia))
+        self.assertLess(np.max(np.abs(cargada[:n] - referencia[:n])), 0.01)
+
+    def test_solo_lee_los_primeros_minutos_de_una_pista_larga(self):
+        with mock.patch('audio.services.MAX_ANALYSIS_SECONDS', 4):
+            y, sr = load_audio(io.BytesIO(to_wav_bytes(sine(440, 10))))
+
+        self.assertAlmostEqual(len(y) / sr, 4.0, delta=0.05)
 
     def test_un_archivo_corrupto_lanza_unsupported_audio_error(self):
         with self.assertRaises(UnsupportedAudioError):
