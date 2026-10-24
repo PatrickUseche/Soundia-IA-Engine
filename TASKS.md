@@ -40,7 +40,7 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 ## Fase 5 — Despliegue
 
-- [ ] chore(db): pasar de SQLite a PostgreSQL [5.1]
+- [x] chore(db): pasar de SQLite a PostgreSQL [5.1] (con `DATABASE_URL`; no se probó contra un Postgres real)
 - [x] chore(docker): Dockerfile del motor [5.2] (escrito pero sin probar: no hay Docker en la máquina de desarrollo)
 - [x] chore(ci): pipeline de GitHub Actions con tests [5.3]
 
@@ -84,6 +84,6 @@ alias. Antes de entrenar, un DJ debe escuchar las mezclas del Auto-DJ ([6.10]) y
 Arquitectura acordada con el usuario (2026-10-24): Angular en Cloudflare Pages, Spring y Django en Render (gratis, se duermen y su disco se borra), base de datos en Neon (Postgres) y audios en Supabase Storage (S3). Nada de esto se ha probado contra las plataformas reales.
 
 - [x] feat(security): clave compartida `SERVICE_TOKEN` entre el API y el motor, porque en Render el motor tiene URL pública [9.1]
-- [ ] feat(db): configurar la base de datos con `DATABASE_URL` (PostgreSQL en Neon) [9.2]
+- [x] feat(db): configurar la base de datos con `DATABASE_URL` (PostgreSQL en Neon) [9.2]
 - [ ] feat(storage): guardar los audios en un almacenamiento S3 (Supabase) y no depender del disco [9.3]
 - [ ] chore(deploy): `render.yaml` y escuchar en el puerto `$PORT` [9.4]

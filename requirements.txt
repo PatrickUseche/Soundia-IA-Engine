@@ -3,3 +3,4 @@ librosa>=1.0,<2
 soundfile>=0.13
 numpy>=2
 gunicorn>=23
+psycopg[binary]>=3.2

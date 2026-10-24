@@ -16,6 +16,8 @@ from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 
+from .dburl import database_from_url
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -106,13 +108,17 @@ WSGI_APPLICATION = 'soundia_ai.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        # En un contenedor la base debe vivir en un volumen: SQLITE_PATH permite moverla.
-        'NAME': Path(os.environ.get('SQLITE_PATH', BASE_DIR / 'db.sqlite3')),
+# Con DATABASE_URL (postgresql://usuario:clave@servidor/base?sslmode=require) se usa PostgreSQL; sin ella, SQLite.
+if os.environ.get('DATABASE_URL'):
+    DATABASES = {'default': database_from_url(os.environ['DATABASE_URL'])}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            # En un contenedor la base debe vivir en un volumen: SQLITE_PATH permite moverla.
+            'NAME': Path(os.environ.get('SQLITE_PATH', BASE_DIR / 'db.sqlite3')),
+        }
     }
-}
 
 
 # Password validation

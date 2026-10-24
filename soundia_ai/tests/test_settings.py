@@ -14,7 +14,8 @@ PROYECTO = Path(__file__).resolve().parents[2]
 _PROGRAMA = (
     "import json, django.conf as c; s = c.settings; "
     "print(json.dumps({'DEBUG': s.DEBUG, 'SECRET_KEY': s.SECRET_KEY, 'ALLOWED_HOSTS': s.ALLOWED_HOSTS, "
-    "'SQLITE': str(s.DATABASES['default']['NAME']), 'MEDIA_ROOT': str(s.MEDIA_ROOT), "
+    "'SQLITE': str(s.DATABASES['default']['NAME']), 'DB_ENGINE': s.DATABASES['default']['ENGINE'], "
+    "'MEDIA_ROOT': str(s.MEDIA_ROOT), "
     "'MAX_UPLOAD': s.AUDIO_MAX_UPLOAD_BYTES}))"
 )
 
@@ -101,3 +102,20 @@ class RutasYLimitesTests(SimpleTestCase):
 
     def test_el_limite_de_subida_se_puede_cambiar(self):
         self.assertEqual(ajustes(AUDIO_MAX_UPLOAD_BYTES='1000')['MAX_UPLOAD'], 1000)
+
+
+class BaseDeDatosTests(SimpleTestCase):
+    def test_sin_database_url_usa_sqlite(self):
+        self.assertEqual(ajustes()['DB_ENGINE'], 'django.db.backends.sqlite3')
+
+    def test_con_database_url_usa_postgresql(self):
+        a = ajustes(DATABASE_URL='postgresql://u:p@servidor.example/soundia')
+
+        self.assertEqual(a['DB_ENGINE'], 'django.db.backends.postgresql')
+        self.assertEqual(a['SQLITE'], 'soundia')
+
+    def test_una_database_url_invalida_impide_arrancar(self):
+        resultado = cargar(DATABASE_URL='mysql://u:p@h/b')
+
+        self.assertNotEqual(resultado.returncode, 0)
+        self.assertIn('DATABASE_URL', resultado.stderr)
