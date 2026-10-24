@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .analysis import AudioTooShortError, SilentAudioError
 from .beatgrid import downbeat_from_choice
+from .memory import release_memory
 from .models import Track
 from .separator import is_available
 from .services import UnsupportedAudioError, analyze_file
@@ -93,6 +94,9 @@ def analyze_track(request):
     except (AudioTooShortError, SilentAudioError) as error:
         # El archivo es valido pero no se puede analizar (muy corto o sin senal).
         return JsonResponse({'error': str(error)}, status=422)
+    finally:
+        # Con haya salido bien o mal, la memoria del analisis vuelve al sistema antes de la siguiente pista.
+        release_memory()
 
     track = Track.objects.create(
         title=(request.POST.get('title') or upload.name)[:255],
