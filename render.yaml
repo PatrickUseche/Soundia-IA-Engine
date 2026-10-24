@@ -1,0 +1,38 @@
+# Motor de IA de SoundIA en Render (plan gratuito; no pide tarjeta). Crea el servicio desde "New > Blueprint".
+# El plan gratuito se duerme tras 15 minutos sin trafico y su disco se borra al reiniciar: por eso la base de datos esta
+# en Neon (DATABASE_URL) y los audios en un almacenamiento S3 (S3_*). Las variables con `sync: false` se piden al crear
+# el servicio y NO se guardan en este archivo.
+services:
+  - type: web
+    name: soundia-motor
+    runtime: docker
+    plan: free
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        value: .onrender.com
+      # Clave compartida con el API Gateway: debe ser la misma que SOUNDIA_IA_ENGINE_KEY del API.
+      - key: SERVICE_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_REGION
+        sync: false
+      # Demucs necesita ~800 MB de RAM y el plan gratuito da 512 MB.
+      - key: VOCAL_ANALYSIS
+        value: "off"
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: GUNICORN_THREADS
+        value: "4"

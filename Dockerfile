@@ -33,4 +33,6 @@ VOLUME ["/data"]
 EXPOSE 8000
 
 # DJANGO_DEBUG=False exige DJANGO_SECRET_KEY. El timeout es largo porque analizar una pista tarda segundos.
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn soundia_ai.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 180"]
+# Escucha en $PORT (lo fija Render) o en 8000. WEB_CONCURRENCY son los procesos (2 por defecto; 1 en 512 MB de RAM) y
+# con 1 proceso se usan 4 hilos para atender varias peticiones a la vez.
+CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn soundia_ai.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-2} --threads ${GUNICORN_THREADS:-1} --timeout 180"]
