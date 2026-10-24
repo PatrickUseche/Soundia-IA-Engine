@@ -16,8 +16,6 @@ from .vocal_jobs import request_vocal_analysis
 
 logger = logging.getLogger(__name__)
 
-# Maximo de pistas que devuelve el listado.
-LIST_LIMIT = 50
 
 # Tipos MIME de los formatos soportados; se fijan a mano para no depender del registro del sistema operativo.
 AUDIO_CONTENT_TYPES = {
@@ -100,7 +98,7 @@ def analyze_track(request):
 def list_tracks(request):
     if request.method != 'GET':
         return JsonResponse({'error': 'Metodo no permitido'}, status=405)
-    tracks = Track.objects.all()[:LIST_LIMIT]
+    tracks = Track.objects.all()[:settings.TRACK_LIST_LIMIT]
     return JsonResponse({'tracks': [track_to_dict(track) for track in tracks]})
 
 

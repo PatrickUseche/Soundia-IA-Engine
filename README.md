@@ -34,6 +34,7 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 | `DATABASE_URL` | vacía (SQLite) | `postgresql://usuario:clave@servidor/base?sslmode=require`: usa PostgreSQL (por ejemplo Neon) en lugar de SQLite, para que los datos sobrevivan a un disco efímero |
 | `S3_BUCKET` | vacía (disco) | Guarda los audios en un almacenamiento S3 (Supabase Storage, R2…) en lugar de `MEDIA_ROOT`. Con ella hacen falta también `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID` y `S3_SECRET_ACCESS_KEY` (y `S3_REGION`, por defecto `us-east-1`); si falta alguna el motor no arranca |
 | `PORT` / `WEB_CONCURRENCY` / `GUNICORN_THREADS` | `8000` / `2` / `1` | Solo en la imagen Docker: puerto de escucha (Render lo fija), procesos e hilos de gunicorn. En 512 MB de RAM: 1 proceso y 4 hilos |
+| `TRACK_LIST_LIMIT` | `200` | Máximo de pistas que devuelve el listado de la biblioteca (las más recientes primero). |
 | `SERVICE_TOKEN` | vacía | Clave compartida con el API: si se define, el motor exige la cabecera `X-Soundia-Key` con ese valor y responde 401 a quien no la lleve. Obligatoria cuando el motor es accesible desde Internet (nube gratuita) |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hosts permitidos. En producción, solo el nombre con que lo llama el API (`ia-engine` en el compose) |
 | `AUDIO_MAX_UPLOAD_BYTES` | `52428800` (50 MB) | Tamaño máximo de un audio subido |
@@ -150,7 +151,7 @@ aprendizaje» y aquí se valida, se guarda y se calculan sus rasgos.
 | Método | Ruta | Descripción |
 |---|---|---|
 | `POST` | `/api/audio/analyze` | `multipart/form-data` con `file` (WAV, FLAC, OGG o MP3) y `title` opcional. Analiza y guarda la pista. |
-| `GET` | `/api/audio/tracks` | Las 50 pistas más recientes. |
+| `GET` | `/api/audio/tracks` | Las pistas más recientes, hasta `TRACK_LIST_LIMIT` (200 por defecto). |
 | `GET` | `/api/audio/tracks/<id>` | Detalle de una pista (incluye `hasAudio`). |
 | `DELETE` | `/api/audio/tracks/<id>` | Borra la pista y su audio (también del almacenamiento externo). 204; 404 si no existe; 502 si el almacenamiento falla (la pista se conserva para reintentar). Las grabaciones de mezclas que la usaron se conservan con la foto de sus datos. |
 | `PUT` | `/api/audio/tracks/<id>/grid` | `{downbeat}`: el DJ señala un instante (segundos) que es un «1» del compás. Se ajusta al pulso más cercano de la rejilla, queda como primer tiempo con `confidence` 1 y `grid.manual` verdadero; los pulsos y el tempo no cambian. 400 si el cuerpo o el instante no son válidos, 409 si la pista no tiene rejilla. |

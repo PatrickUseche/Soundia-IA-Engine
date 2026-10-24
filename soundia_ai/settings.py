@@ -69,6 +69,9 @@ if os.environ.get('S3_BUCKET'):
         },
     }
 
+# Maximo de pistas que devuelve el listado de la biblioteca (las mas recientes primero).
+TRACK_LIST_LIMIT = int(os.environ.get('TRACK_LIST_LIMIT', 200))
+
 # Tamano maximo de un archivo de audio subido para analizar (por defecto 50 MB).
 AUDIO_MAX_UPLOAD_BYTES = int(os.environ.get('AUDIO_MAX_UPLOAD_BYTES', 50 * 1024 * 1024))
 

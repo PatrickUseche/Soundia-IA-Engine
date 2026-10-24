@@ -193,11 +193,23 @@ class TrackQueryViewTests(TempMediaMixin, TestCase):
     def test_la_lista_esta_vacia_sin_pistas(self):
         self.assertEqual(self.client.get(TRACKS).json(), {'tracks': []})
 
-    def test_la_lista_se_limita_a_50(self):
+    @override_settings(TRACK_LIST_LIMIT=50)
+    def test_la_lista_se_limita_al_maximo_configurado(self):
         for i in range(55):
             self.crear(f'pista {i}')
 
         self.assertEqual(len(self.client.get(TRACKS).json()['tracks']), 50)
+
+    def test_por_defecto_la_lista_llega_a_200_pistas(self):
+        from django.conf import settings
+        self.assertEqual(settings.TRACK_LIST_LIMIT, 200)
+
+    @override_settings(TRACK_LIST_LIMIT=200)
+    def test_con_mas_de_50_pistas_las_devuelve_todas_hasta_el_maximo(self):
+        for i in range(60):
+            self.crear(f'pista {i}')
+
+        self.assertEqual(len(self.client.get(TRACKS).json()['tracks']), 60)
 
     def test_detalle_de_una_pista(self):
         track = self.crear('mi pista', cue_points=[0.0, 16.5])

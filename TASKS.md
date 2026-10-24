@@ -94,3 +94,4 @@ Arquitectura acordada con el usuario (2026-10-24): Angular en Cloudflare Pages, 
 Acordado con el usuario (2026-10-24): el DJ usa la versión de la nube, por sesiones (sube las pistas de la sesión, mezcla con el modo aprendizaje y borra las pistas al terminar; las grabaciones se conservan). El almacenamiento gratuito de Supabase es de 1 GB.
 
 - [x] feat(tracks): borrar una pista y su audio (`DELETE /api/audio/tracks/<id>`) [10.1]
+- [x] feat(tracks): el listado de pistas llega a 200 (antes 50) y es configurable con `TRACK_LIST_LIMIT` [10.3]
