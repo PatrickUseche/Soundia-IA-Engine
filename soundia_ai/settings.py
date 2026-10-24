@@ -42,6 +42,33 @@ if not SECRET_KEY:
 # Carpeta donde se guardan los audios subidos (ignorada por git). Se puede cambiar con MEDIA_ROOT.
 MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
 
+# Audios en un almacenamiento S3 (Supabase Storage, R2, etc.) en lugar del disco: con S3_BUCKET definido hacen falta
+# tambien S3_ENDPOINT_URL, S3_ACCESS_KEY_ID y S3_SECRET_ACCESS_KEY. Sirve cuando el disco del servidor es efimero.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
+if os.environ.get('S3_BUCKET'):
+    _s3 = {nombre: os.environ.get(nombre, '').strip()
+           for nombre in ('S3_ENDPOINT_URL', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY')}
+    _faltan = [nombre for nombre, valor in _s3.items() if not valor]
+    if _faltan:
+        raise ImproperlyConfigured('Con S3_BUCKET definido tambien hacen falta: ' + ', '.join(_faltan) + '.')
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': os.environ['S3_BUCKET'].strip(),
+            'endpoint_url': _s3['S3_ENDPOINT_URL'],
+            'access_key': _s3['S3_ACCESS_KEY_ID'],
+            'secret_key': _s3['S3_SECRET_ACCESS_KEY'],
+            'region_name': os.environ.get('S3_REGION', 'us-east-1').strip(),
+            # Supabase y otros no usan el bucket como subdominio; los audios se sirven desde este motor, no por URL firmada.
+            'addressing_style': 'path',
+            'file_overwrite': False,
+            'default_acl': None,
+        },
+    }
+
 # Tamano maximo de un archivo de audio subido para analizar (por defecto 50 MB).
 AUDIO_MAX_UPLOAD_BYTES = int(os.environ.get('AUDIO_MAX_UPLOAD_BYTES', 50 * 1024 * 1024))
 

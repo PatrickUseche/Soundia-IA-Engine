@@ -85,5 +85,5 @@ Arquitectura acordada con el usuario (2026-10-24): Angular en Cloudflare Pages, 
 
 - [x] feat(security): clave compartida `SERVICE_TOKEN` entre el API y el motor, porque en Render el motor tiene URL pública [9.1]
 - [x] feat(db): configurar la base de datos con `DATABASE_URL` (PostgreSQL en Neon) [9.2]
-- [ ] feat(storage): guardar los audios en un almacenamiento S3 (Supabase) y no depender del disco [9.3]
+- [x] feat(storage): guardar los audios en un almacenamiento S3 (Supabase) y no depender del disco [9.3]
 - [ ] chore(deploy): `render.yaml` y escuchar en el puerto `$PORT` [9.4]

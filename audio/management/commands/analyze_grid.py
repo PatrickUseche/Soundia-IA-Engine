@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand
 from audio.analysis import AudioTooShortError, SilentAudioError
 from audio.models import Track
 from audio.services import UnsupportedAudioError, analyze_file
+from audio.storage import local_audio_path
 
 
 class Command(BaseCommand):
@@ -29,7 +30,8 @@ class Command(BaseCommand):
         self.stdout.write(f'Calculando la rejilla de {len(pistas)} pista(s).')
         for pista in pistas:
             try:
-                analisis = analyze_file(pista.audio_file.path)
+                with local_audio_path(pista.audio_file) as ruta:
+                    analisis = analyze_file(ruta)
             except (UnsupportedAudioError, AudioTooShortError, SilentAudioError, OSError) as error:
                 self.stdout.write(self.style.WARNING(f'  {pista.title}: no se pudo analizar ({error})'))
                 continue

@@ -18,6 +18,7 @@ from django.db import close_old_connections
 
 from .models import Track
 from .separator import VocalSeparationUnavailable, is_available
+from .storage import local_audio_path
 from .vocal_analysis import VocalResult
 from .vocal_worker import UNAVAILABLE_EXIT_CODE
 
@@ -75,7 +76,8 @@ def run_vocal_analysis(track_id: int, analyzer=None) -> None:
 
     _save(track, Track.VOCALS_RUNNING, track.vocal_last_end, track.vocal_first_start)
     try:
-        result = analyzer(track.audio_file.path, track.duration)
+        with local_audio_path(track.audio_file) as path:
+            result = analyzer(path, track.duration)
     except VocalSeparationUnavailable:
         _save(track, Track.VOCALS_UNAVAILABLE, None, None)
     except Exception:  # noqa: BLE001 - un fallo del modelo o del audio no debe tumbar el hilo
