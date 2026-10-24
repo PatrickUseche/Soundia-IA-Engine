@@ -16,6 +16,19 @@ from .vocal_jobs import request_vocal_analysis
 
 logger = logging.getLogger(__name__)
 
+MAX_GENRE_LENGTH = 40
+
+
+def normalize_genre(value) -> str:
+    """El genero como se guarda: sin espacios de mas y en minusculas, para que "Salsa" y "salsa " cuenten como uno.
+    Lanza ValueError si no es texto o es demasiado largo."""
+    if not isinstance(value, str):
+        raise ValueError("'genre' debe ser texto.")
+    genre = ' '.join(value.split()).lower()
+    if len(genre) > MAX_GENRE_LENGTH:
+        raise ValueError(f"'genre' no puede pasar de {MAX_GENRE_LENGTH} caracteres.")
+    return genre
+
 
 # Tipos MIME de los formatos soportados; se fijan a mano para no depender del registro del sistema operativo.
 AUDIO_CONTENT_TYPES = {
@@ -46,6 +59,7 @@ def track_to_dict(track: Track) -> dict:
         'energy': track.energy,
         'cuePoints': track.cue_points,
         'hasAudio': bool(track.audio_file),
+        'genre': track.genre,
         'vocals': {
             'status': track.vocal_status, 'lastEnd': track.vocal_last_end, 'firstStart': track.vocal_first_start,
         },
@@ -68,6 +82,11 @@ def analyze_track(request):
         return JsonResponse({'error': f'El archivo supera el maximo de {limite_mb} MB.'}, status=413)
 
     try:
+        genre = normalize_genre(request.POST.get('genre', ''))
+    except ValueError as error:
+        return JsonResponse({'error': str(error)}, status=400)
+
+    try:
         analysis = analyze_file(upload)
     except UnsupportedAudioError as error:
         return JsonResponse({'error': str(error)}, status=400)
@@ -86,6 +105,7 @@ def analyze_track(request):
         grid_offset=analysis.grid_offset,
         grid_downbeat=analysis.grid_downbeat,
         grid_confidence=analysis.grid_confidence,
+        genre=genre,
     )
     # El analisis ya leyo el archivo hasta el final: se rebobina para guardarlo completo.
     upload.seek(0)
@@ -104,15 +124,29 @@ def list_tracks(request):
 
 @csrf_exempt
 def track_detail(request, pk):
-    """GET: los datos de la pista. DELETE: la borra junto con su audio (las grabaciones de mezclas que la usaron se
-    conservan: guardan una foto de sus datos)."""
-    if request.method not in ('GET', 'DELETE'):
+    """GET: los datos de la pista. PUT `{genre}`: le pone el genero (vacio lo quita). DELETE: la borra junto con su
+    audio (las grabaciones de mezclas que la usaron se conservan: guardan una foto de sus datos)."""
+    if request.method not in ('GET', 'PUT', 'DELETE'):
         return JsonResponse({'error': 'Metodo no permitido'}, status=405)
     try:
         track = Track.objects.get(pk=pk)
     except Track.DoesNotExist:
         return JsonResponse({'error': 'Pista no encontrada'}, status=404)
     if request.method == 'GET':
+        return JsonResponse(track_to_dict(track))
+
+    if request.method == 'PUT':
+        try:
+            data = json.loads(request.body or b'null')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({'error': 'El cuerpo debe ser un JSON valido'}, status=400)
+        if not isinstance(data, dict) or 'genre' not in data:
+            return JsonResponse({'error': "Falta 'genre' en el cuerpo."}, status=400)
+        try:
+            track.genre = normalize_genre(data['genre'])
+        except ValueError as error:
+            return JsonResponse({'error': str(error)}, status=400)
+        track.save(update_fields=['genre'])
         return JsonResponse(track_to_dict(track))
 
     # El audio se borra primero: si el almacenamiento falla, la pista sigue y se puede reintentar sin dejar un

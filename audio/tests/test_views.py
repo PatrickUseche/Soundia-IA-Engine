@@ -50,6 +50,23 @@ class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
 
         self.assertEqual(response.json()['title'], 'mi_tema.wav')
 
+    def test_una_pista_nueva_no_tiene_genero(self):
+        self.assertEqual(self.subir(wav(cancion())).json()['genre'], '')
+
+    def test_se_puede_poner_el_genero_al_subir_la_pista(self):
+        response = self.subir(wav(cancion()), genre='  Salsa  Brava ')
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['genre'], 'salsa brava')
+        self.assertEqual(Track.objects.get().genre, 'salsa brava')
+
+    def test_un_genero_demasiado_largo_se_rechaza_antes_de_analizar(self):
+        response = self.subir(wav(cancion()), genre='x' * 41)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('genre', response.json()['error'])
+        self.assertEqual(Track.objects.count(), 0)
+
     def test_el_titulo_enviado_tiene_prioridad(self):
         response = self.subir(wav(cancion(), nombre='mi_tema.wav'), title='Mi tema (Extended Mix)')
 
@@ -229,6 +246,57 @@ class TrackQueryViewTests(TempMediaMixin, TestCase):
         self.assertEqual(self.client.post(TRACKS).status_code, 405)
 
 
+class GeneroDeLaPistaViewTests(TestCase):
+    def setUp(self):
+        self.track = Track.objects.create(
+            title='tema', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
+
+    def poner(self, cuerpo, pk=None):
+        return self.client.put(
+            f'{TRACKS}/{pk or self.track.id}', data=json.dumps(cuerpo) if not isinstance(cuerpo, str) else cuerpo,
+            content_type='application/json')
+
+    def test_pone_el_genero_y_devuelve_la_pista(self):
+        response = self.poner({'genre': 'Bachata'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['genre'], 'bachata')
+        self.track.refresh_from_db()
+        self.assertEqual(self.track.genre, 'bachata')
+
+    def test_normaliza_espacios_y_mayusculas(self):
+        self.assertEqual(self.poner({'genre': '  DISCO   Bar '}).json()['genre'], 'disco bar')
+
+    def test_un_genero_vacio_lo_quita(self):
+        self.poner({'genre': 'salsa'})
+
+        self.assertEqual(self.poner({'genre': ''}).json()['genre'], '')
+
+    def test_el_detalle_y_el_listado_incluyen_el_genero(self):
+        self.poner({'genre': 'merengue'})
+
+        self.assertEqual(self.client.get(f'{TRACKS}/{self.track.id}').json()['genre'], 'merengue')
+        self.assertEqual(self.client.get(TRACKS).json()['tracks'][0]['genre'], 'merengue')
+
+    def test_rechaza_lo_que_no_es_un_genero_valido(self):
+        for cuerpo in ({'genre': 5}, {'genre': None}, {'genre': 'x' * 41}, {}, [], 'no-json', ''):
+            with self.subTest(cuerpo=cuerpo):
+                self.assertEqual(self.poner(cuerpo).status_code, 400)
+        self.track.refresh_from_db()
+        self.assertEqual(self.track.genre, '')
+
+    def test_pista_inexistente_devuelve_404(self):
+        self.assertEqual(self.poner({'genre': 'salsa'}, pk=9999).status_code, 404)
+
+    def test_no_exige_token_csrf(self):
+        from django.test import Client
+
+        response = Client(enforce_csrf_checks=True).put(
+            f'{TRACKS}/{self.track.id}', data='{"genre": "salsa"}', content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+
+
 class BorrarPistaViewTests(TempMediaMixin, TestCase):
     def crear_con_audio(self, nombre='tema.wav'):
         track = Track.objects.create(
@@ -288,7 +356,7 @@ class BorrarPistaViewTests(TempMediaMixin, TestCase):
         track = self.crear_con_audio()
 
         self.assertEqual(self.client.post(f'{TRACKS}/{track.id}').status_code, 405)
-        self.assertEqual(self.client.put(f'{TRACKS}/{track.id}').status_code, 405)
+        self.assertEqual(self.client.patch(f'{TRACKS}/{track.id}').status_code, 405)
 
 
 class TrackFileViewTests(TempMediaMixin, TestCase):

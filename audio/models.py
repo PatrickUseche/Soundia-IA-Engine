@@ -54,6 +54,10 @@ class Track(models.Model):
         null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(1)],
         help_text="Seguridad (0-1) de que grid_downbeat sea de verdad el primer tiempo del compas.",
     )
+    genre = models.CharField(
+        max_length=40, blank=True,
+        help_text="Genero de la pista (merengue, bachata, salsa...), en minusculas; lo pone el DJ y da contexto al estilo.",
+    )
     grid_manual = models.BooleanField(
         default=False,
         help_text="El DJ fijo a mano el primer tiempo (grid_downbeat): el recalculo de la rejilla no lo pisa.",

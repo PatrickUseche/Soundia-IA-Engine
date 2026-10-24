@@ -183,8 +183,9 @@ def parse_recording(data: dict) -> dict:
         'pitch_a': _number(data, 'pitchA', MIN_PITCH, MAX_PITCH),
         'pitch_b': _number(data, 'pitchB', MIN_PITCH, MAX_PITCH),
         'curves': _curves(data.get('curves'), overlap),
-        'genre_a': _text(data, 'genreA', MAX_GENRE),
-        'genre_b': _text(data, 'genreB', MAX_GENRE),
+        # Si el cliente no manda el genero, se toma el que el DJ le puso a cada pista.
+        'genre_a': _text(data, 'genreA', MAX_GENRE) or origin.genre,
+        'genre_b': _text(data, 'genreB', MAX_GENRE) or destination.genre,
         'snapshot_a': snapshot_of(origin).to_dict(),
         'snapshot_b': snapshot_of(destination).to_dict(),
         'notes': _text(data, 'notes', MAX_TEXT),
