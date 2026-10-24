@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import librosa
 import numpy as np
+import soundfile
+import soxr
 
 from .analysis import compute_energy, detect_bpm, detect_key, find_cue_points
 from .beatgrid import MIN_BEAT_STRENGTH, MIN_DOWNBEAT_CONFIDENCE, estimate_grid
@@ -36,8 +38,33 @@ class TrackAnalysis:
     grid_confidence: float | None = None  # 0-1: seguridad de que ese sea el primer tiempo
 
 
+# Segundos de audio que se leen y remuestrean a la vez.
+LOAD_BLOCK_SECONDS = 10
+
+
+def _load_streaming(source) -> np.ndarray:
+    """Lee el archivo por bloques, pasandolo a mono y a TARGET_SAMPLE_RATE sobre la marcha: librosa.load lo lee
+    entero a 44.1 kHz en estereo antes de remuestrear y una pista de 6 minutos pide unos 300 MB de memoria."""
+    with soundfile.SoundFile(source) as archivo:
+        origen = archivo.samplerate
+        remuestreador = soxr.ResampleStream(origen, TARGET_SAMPLE_RATE, 1, dtype='float32') if origen != TARGET_SAMPLE_RATE else None
+        partes = []
+        for bloque in archivo.blocks(blocksize=origen * LOAD_BLOCK_SECONDS, frames=origen * MAX_ANALYSIS_SECONDS,
+                                     dtype='float32', always_2d=True):
+            mono = np.ascontiguousarray(bloque.mean(axis=1), dtype=np.float32)
+            partes.append(remuestreador.resample_chunk(mono) if remuestreador else mono)
+        if remuestreador:
+            partes.append(remuestreador.resample_chunk(np.zeros(0, dtype=np.float32), last=True))
+    return np.concatenate(partes) if partes else np.zeros(0, dtype=np.float32)
+
+
 def load_audio(source) -> tuple[np.ndarray, int]:
     """Lee un archivo (ruta o archivo abierto) como senal mono a TARGET_SAMPLE_RATE."""
+    try:
+        return _load_streaming(source), TARGET_SAMPLE_RATE
+    except Exception:  # noqa: BLE001 - soundfile no lee todos los formatos (ni el vacio): se prueba con librosa
+        if hasattr(source, 'seek'):
+            source.seek(0)
     try:
         y, sr = librosa.load(source, sr=TARGET_SAMPLE_RATE, mono=True, duration=MAX_ANALYSIS_SECONDS)
     except Exception as error:  # noqa: BLE001 - los decodificadores lanzan muchos tipos de error distintos

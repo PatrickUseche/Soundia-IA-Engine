@@ -87,3 +87,4 @@ Arquitectura acordada con el usuario (2026-10-24): Angular en Cloudflare Pages, 
 - [x] feat(db): configurar la base de datos con `DATABASE_URL` (PostgreSQL en Neon) [9.2]
 - [x] feat(storage): guardar los audios en un almacenamiento S3 (Supabase) y no depender del disco [9.3]
 - [x] chore(deploy): `render.yaml` y escuchar en el puerto `$PORT` [9.4]
+- [x] fix(audio): bajar el pico de memoria del análisis de ~880 MB a ~300 MB en una pista de 6 minutos (carga por bloques, STFT/CQT por tramos, tempo sobre el tramo más rítmico), porque en Render gratis (512 MB) el motor se caía al analizar [9.5]
