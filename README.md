@@ -139,6 +139,12 @@ aprendizaje» y aquí se valida, se guarda y se calculan sus rasgos.
 
 También por consola: `python manage.py recordings_backup --export copia.json` y `--import copia.json`.
 
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/mix/recordings/summary` | Resumen por género de las mezclas grabadas, sin entrenar nada: mediana, mínimo y máximo de los compases de solape, a qué altura de la pista sale, cuántas veces usó cada forma de crossfader (corte, gradual, lento), en cuántas hizo cambio de graves y hacia qué punto del solape, desfase de pulsos, diferencia de BPM y distancia de tonalidad. `?quality=good` (por defecto), `unreviewed`, `discard` o `all`; `?genre=salsa` para un solo género. |
+
+Por consola: `python manage.py recordings_report` (`--quality all`, `--genre salsa`). Es lo primero que conviene mirar después de una sesión de entrenamiento: con unas pocas decenas de mezclas buenas ya se ve el estilo del DJ.
+
 - **Curvas** (`curves`): pares `[segundo, valor 0-1]` con el segundo relativo a la entrada de B (de -1 a la duración del
   solape + 1), hasta 200 puntos por curva: `crossfader` y, para cada deck (`a`, `b`), `volume`, `low`, `mid` y `high`.
 - **Foto de las pistas:** el servidor guarda los datos de las dos pistas tal como eran (tempo, Camelot, energía,
