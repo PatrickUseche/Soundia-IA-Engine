@@ -10,6 +10,7 @@ from audio.models import Track
 from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
 from .backup import export_recordings, import_recordings
 from .models import MixRecording
+from .report import summarize
 from .recordings import QUALITIES, InvalidRecording, derive_features, parse_recording, parse_review
 from .timing import learned_advance, record_mix_timing, timing_count
 from .transition import plan_transition
@@ -300,6 +301,17 @@ def recordings(request):
         })
 
     return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+
+
+def recordings_summary(request):
+    """GET: resumen por genero de las mezclas grabadas (medianas y frecuencias). `?quality=good|unreviewed|discard|all`
+    (por defecto good) y `?genre=salsa` para quedarse con un genero."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    quality = request.GET.get('quality', 'good')
+    if quality != 'all' and quality not in QUALITIES:
+        return JsonResponse({'error': f"'quality' debe ser uno de {list(QUALITIES)} o 'all'."}, status=400)
+    return JsonResponse(summarize(quality=None if quality == 'all' else quality, genre=request.GET.get('genre') or None))
 
 
 def recordings_export(request):

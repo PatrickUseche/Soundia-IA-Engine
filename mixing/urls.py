@@ -9,6 +9,7 @@ urlpatterns = [
     path('weights', views.weights, name='weights'),
     path('timing', views.mix_timing, name='mix_timing'),
     path('recordings', views.recordings, name='recordings'),
+    path('recordings/summary', views.recordings_summary, name='recordings_summary'),
     path('recordings/export', views.recordings_export, name='recordings_export'),
     path('recordings/import', views.recordings_import, name='recordings_import'),
     path('recordings/<int:pk>', views.recording_detail, name='recording_detail'),
