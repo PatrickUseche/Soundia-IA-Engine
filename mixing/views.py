@@ -11,6 +11,7 @@ from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
 from .backup import export_recordings, import_recordings
 from .models import MixRecording
 from .report import summarize
+from .style_model import style_model_status
 from .recordings import QUALITIES, InvalidRecording, derive_features, parse_recording, parse_review
 from .timing import learned_advance, record_mix_timing, timing_count
 from .transition import plan_transition
@@ -301,6 +302,13 @@ def recordings(request):
         })
 
     return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+
+
+def style_model(request):
+    """GET: cuantas mezclas buenas hay para aprender el estilo del DJ y si el modelo ya acierta mas que las reglas."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    return JsonResponse(style_model_status())
 
 
 def recordings_summary(request):
