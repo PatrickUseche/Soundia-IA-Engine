@@ -141,6 +141,7 @@ También por consola: `python manage.py recordings_backup --export copia.json` y
 
 | Método | Ruta | Descripción |
 |---|---|---|
+| `GET` | `/api/mix/style-model` | Estado del modelo del estilo del DJ: cuántas mezclas buenas hay (`goodRecordings`), cuántas hacen falta (`required`, 20) y, cuando hay suficientes, su evaluación dejando cada mezcla fuera: error del modelo frente al de las reglas para los compases de solape y para el punto del cambio de graves, y si gana (`wins`). El modelo (`mixing/style_model.py`) solo usa las mezclas buenas del propio DJ, parte de las reglas y se desplaza hacia lo que él hace tanto como permiten los datos; todavía no cambia ningún plan [8.8]. |
 | `GET` | `/api/mix/recordings/summary` | Resumen por género de las mezclas grabadas, sin entrenar nada: mediana, mínimo y máximo de los compases de solape, a qué altura de la pista sale, cuántas veces usó cada forma de crossfader (corte, gradual, lento), en cuántas hizo cambio de graves y hacia qué punto del solape, desfase de pulsos, diferencia de BPM y distancia de tonalidad. `?quality=good` (por defecto), `unreviewed`, `discard` o `all`; `?genre=salsa` para un solo género. |
 
 Por consola: `python manage.py recordings_report` (`--quality all`, `--genre salsa`). Es lo primero que conviene mirar después de una sesión de entrenamiento: con unas pocas decenas de mezclas buenas ya se ve el estilo del DJ.
