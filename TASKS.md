@@ -69,14 +69,14 @@ alias. Antes de entrenar, un DJ debe escuchar las mezclas del Auto-DJ ([6.10]) y
 
 - [x] feat(ml): almacén de grabaciones de mezclas (`MixRecording`) con foto de las pistas, validación y rasgos derivados [8.1]
 - [x] feat(ml): exportar y restaurar las grabaciones en un archivo JSON (copia de seguridad), por HTTP y por comando [8.2]
-- [ ] feat(tracks): ruta de reenvío `/api/v1/recordings` en Spring [8.3]
-- [ ] feat(learning): modo aprendizaje en Angular que graba las transiciones manuales (entrada de B, solape y curvas) [8.4]
-- [ ] feat(learning): pantalla para revisar las grabaciones (buena, descartada, notas) [8.5]
-- [x] feat(tracks): género de cada pista, editable, como dato de contexto del estilo (motor de IA; falta Spring y Angular) [8.6]
+- [x] feat(tracks): ruta de reenvío `/api/v1/recordings` en Spring [8.3] (`RecordingController` del API)
+- [x] feat(learning): modo aprendizaje en Angular que graba las transiciones manuales (entrada de B, solape y curvas) [8.4] (`learning-panel`, `mix-recorder` y `transition-detector`)
+- [x] feat(learning): pantalla para revisar las grabaciones (buena, descartada, notas) [8.5] (`/grabaciones` en Angular)
+- [x] feat(tracks): género de cada pista, editable, como dato de contexto del estilo (motor de IA, Spring y Angular) [8.6]
 - [ ] feat(audio): tempo variable (salsa y merengue en vivo lo mueven); es la [6.4], que sube de prioridad [8.7]
 - [ ] feat(ml): modelo de parámetros de transición (medianas por contexto, luego regresión regularizada hacia las reglas) y su evaluación contra las reglas actuales [8.8]
 - [ ] feat(ml): usar el modelo en el plan de transición solo si gana a las reglas, con interruptor y vuelta atrás [8.9]
-- [ ] chore(demo): modo de datos reales en el script de arranque (carpeta fija en lugar de la temporal) [8.10]
+- [x] chore(demo): modo de datos reales en el script de arranque (carpeta fija en lugar de la temporal) [8.10] (`iniciar-demo.ps1 -Datos <carpeta>`)
 - [ ] feat(ml): modelo de qué pista sigue, a partir de las secuencias reales (después de lo anterior) [8.11]
 
 ## Fase 9 — Nube gratuita sin tarjeta (en curso)
