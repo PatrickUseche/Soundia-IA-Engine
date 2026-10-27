@@ -161,6 +161,7 @@ def transition(request):
         'compatibility': _compatibility_to_dict(plan.compatibility),
         'automation': [_automation_point_to_dict(point) for point in plan.automation],
         'mixOutAdvance': plan.mix_out_advance,
+        'variableTempo': plan.variable_tempo,
         # De donde salen los compases y el cambio de graves: 'model' si se uso lo aprendido del DJ, 'rules' si no.
         'source': 'model' if learned.used else 'rules',
         'learnedBars': learned.bars is not None,

@@ -2,9 +2,10 @@ import numpy as np
 from django.test import SimpleTestCase
 
 from audio.beatgrid import (
-    EARLY_BEAT_TOLERANCE_SECONDS, MIN_BEAT_STRENGTH, downbeat_from_choice, estimate_grid,
+    EARLY_BEAT_TOLERANCE_SECONDS, MIN_BEAT_STRENGTH, VARIABLE_TEMPO_WOBBLE_MS, downbeat_from_choice, estimate_grid,
+    is_variable_tempo,
 )
-from audio.tests.signals import SR, click_track, sine
+from audio.tests.signals import SR, click_track, sine, variable_click_track
 
 
 def circular_error(estimado, real, periodo):
@@ -154,3 +155,31 @@ class DownbeatFromChoiceTests(SimpleTestCase):
         for elegido in (3.3, 17.77, 90.01):
             pulsos = (downbeat_from_choice(offset, bpm, elegido) - offset) / periodo
             self.assertAlmostEqual(pulsos, round(pulsos), places=3)
+
+
+class TempoVariableTests(SimpleTestCase):
+    def test_un_pulso_exacto_no_oscila(self):
+        rejilla = estimate_grid(click_track(124, 60), SR, bpm_hint=124)
+
+        self.assertLess(rejilla.wobble_ms, 5.0)
+        self.assertFalse(is_variable_tempo(rejilla.wobble_ms))
+
+    def test_una_banda_que_acelera_se_detecta_como_tempo_variable(self):
+        y = variable_click_track(110, 130, 90)
+
+        rejilla = estimate_grid(y, SR, bpm_hint=120)
+
+        self.assertGreater(rejilla.wobble_ms, VARIABLE_TEMPO_WOBBLE_MS)
+        self.assertTrue(is_variable_tempo(rejilla.wobble_ms))
+
+    def test_una_pista_muy_corta_no_se_puede_medir(self):
+        rejilla = estimate_grid(click_track(124, 12), SR, bpm_hint=124)
+
+        self.assertIsNone(rejilla.wobble_ms)
+        self.assertFalse(is_variable_tempo(rejilla.wobble_ms))
+
+    def test_la_correccion_del_tempo_por_deriva_no_cambio(self):
+        # Refactor de la medicion de fase por tramos: el tempo afinado sigue siendo el mismo.
+        rejilla = estimate_grid(click_track(123.4, 60), SR, bpm_hint=123)
+
+        self.assertAlmostEqual(rejilla.bpm, 123.4, delta=0.03)

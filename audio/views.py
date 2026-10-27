@@ -8,7 +8,7 @@ from django.http import FileResponse, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .analysis import AudioTooShortError, SilentAudioError
-from .beatgrid import downbeat_from_choice
+from .beatgrid import downbeat_from_choice, is_variable_tempo
 from .memory import release_memory
 from .models import Track
 from .separator import is_available
@@ -46,6 +46,7 @@ def _grid_to_dict(track: Track) -> dict | None:
     return {
         'offset': track.grid_offset, 'downbeat': track.grid_downbeat, 'confidence': track.grid_confidence,
         'manual': track.grid_manual,
+        'wobbleMs': track.tempo_wobble_ms,
     }
 
 
@@ -65,6 +66,7 @@ def track_to_dict(track: Track) -> dict:
             'status': track.vocal_status, 'lastEnd': track.vocal_last_end, 'firstStart': track.vocal_first_start,
         },
         'grid': _grid_to_dict(track),
+        'variableTempo': is_variable_tempo(track.tempo_wobble_ms),
         'createdAt': track.created_at.isoformat(),
     }
 
@@ -109,6 +111,7 @@ def analyze_track(request):
         grid_offset=analysis.grid_offset,
         grid_downbeat=analysis.grid_downbeat,
         grid_confidence=analysis.grid_confidence,
+        tempo_wobble_ms=analysis.tempo_wobble_ms,
         genre=genre,
     )
     # El analisis ya leyo el archivo hasta el final: se rebobina para guardarlo completo.

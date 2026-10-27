@@ -425,7 +425,20 @@ class TrackFileViewTests(TempMediaMixin, TestCase):
 
         self.assertIsNone(self.client.get(f'{TRACKS}/{sin_rejilla.id}').json()['grid'])
         self.assertEqual(self.client.get(f'{TRACKS}/{con_rejilla.id}').json()['grid'],
-                         {'offset': 0.0239, 'downbeat': 0.5844, 'confidence': 0.585, 'manual': False})
+                         {'offset': 0.0239, 'downbeat': 0.5844, 'confidence': 0.585, 'manual': False, 'wobbleMs': None})
+
+    def test_el_detalle_dice_si_el_tempo_es_variable(self):
+        fija = Track.objects.create(
+            title='fija', duration=300.0, bpm=110.0, key='C major', camelot='8B', energy=0.5,
+            grid_offset=0.02, grid_downbeat=0.5, grid_confidence=0.5, tempo_wobble_ms=6.0)
+        en_vivo = Track.objects.create(
+            title='en vivo', duration=300.0, bpm=110.0, key='C major', camelot='8B', energy=0.5,
+            grid_offset=0.02, grid_downbeat=0.5, grid_confidence=0.5, tempo_wobble_ms=85.0)
+
+        self.assertFalse(self.client.get(f'{TRACKS}/{fija.id}').json()['variableTempo'])
+        detalle = self.client.get(f'{TRACKS}/{en_vivo.id}').json()
+        self.assertTrue(detalle['variableTempo'])
+        self.assertEqual(detalle['grid']['wobbleMs'], 85.0)
 
     def test_subir_una_pista_con_ritmo_guarda_su_rejilla(self):
         response = self.client.post(ANALYZE, {'file': wav(click_track(110.0, 30, first_beat=0.2))})
@@ -478,7 +491,8 @@ class FijarPrimerTiempoViewTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(
-            respuesta.json()['grid'], {'offset': 0.1, 'downbeat': 0.6, 'confidence': 1.0, 'manual': True})
+            respuesta.json()['grid'],
+            {'offset': 0.1, 'downbeat': 0.6, 'confidence': 1.0, 'manual': True, 'wobbleMs': None})
         self.pista.refresh_from_db()
         self.assertEqual((self.pista.grid_downbeat, self.pista.grid_confidence, self.pista.grid_manual), (0.6, 1.0, True))
 

@@ -317,6 +317,32 @@ class PlanTransitionConVozDelInicioTests(SimpleTestCase):
         self.assertEqual(plan.bars, BARS_FADE)
 
 
+class VariableTempoTests(SimpleTestCase):
+    def test_con_una_pista_de_tempo_variable_el_plan_es_un_fundido_aunque_el_pitch_alcance(self):
+        a = track(bpm=128)
+        b = TrackInfo(id=2, title='en vivo', bpm=128.0, camelot='8B', energy=0.6, duration=300.0,
+                      cue_points=[0.0, 60.0, 270.0], tempo_variable=True)
+
+        plan = plan_transition(a, b)
+
+        self.assertTrue(plan.tempo_match.feasible)
+        self.assertEqual(plan.style, STYLE_FADE)
+        self.assertEqual(plan.bars, BARS_FADE)
+        self.assertTrue(plan.variable_tempo)
+
+    def test_tambien_si_la_variable_es_la_que_sale(self):
+        a = TrackInfo(id=1, title='en vivo', bpm=128.0, camelot='8B', energy=0.6, duration=300.0,
+                      cue_points=[0.0, 60.0, 270.0], tempo_variable=True)
+
+        self.assertEqual(plan_transition(a, track(id=2, bpm=128)).style, STYLE_FADE)
+
+    def test_con_tempos_fijos_nada_cambia(self):
+        plan = plan_transition(track(bpm=128), track(id=2, bpm=128))
+
+        self.assertEqual(plan.style, STYLE_BLEND)
+        self.assertFalse(plan.variable_tempo)
+
+
 class LearnedStyleTests(SimpleTestCase):
     def test_los_compases_aprendidos_reemplazan_a_los_de_la_regla(self):
         plan = plan_transition(track(bpm=128), track(id=2, bpm=128), bars_override=BARS_QUICK)

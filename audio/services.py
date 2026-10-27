@@ -36,6 +36,7 @@ class TrackAnalysis:
     grid_offset: float | None = None  # segundo del primer pulso
     grid_downbeat: float | None = None  # segundo del primer tiempo del compas
     grid_confidence: float | None = None  # 0-1: seguridad de que ese sea el primer tiempo
+    tempo_wobble_ms: float | None = None  # cuanto oscila la fase de los golpes; alto = tempo variable
 
 
 # Segundos de audio que se leen y remuestrean a la vez.
@@ -98,6 +99,7 @@ def analyze_signal(y: np.ndarray, sr: int) -> TrackAnalysis:
         grid_offset=grid.offset if has_grid else None,
         grid_downbeat=grid.downbeat_offset if has_grid else None,
         grid_confidence=grid.downbeat_confidence if has_grid else None,
+        tempo_wobble_ms=grid.wobble_ms if has_grid else None,
     )
 
 

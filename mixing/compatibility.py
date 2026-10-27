@@ -1,6 +1,7 @@
 """Que tan bien mezclan dos pistas y cual conviene poner despues de la actual."""
 from dataclasses import dataclass, field
 
+from audio.beatgrid import is_variable_tempo
 from audio.camelot import harmonic_distance
 
 from .tempo import TempoMatch, match_tempo, tempo_score
@@ -46,6 +47,7 @@ class TrackInfo:
     cue_points: list[float] = field(default_factory=list)
     vocal_last_end: float | None = None  # segundo en que acaba la ultima frase cantada; None si no se sabe
     vocal_first_start: float | None = None  # segundo en que empieza la primera frase cantada; None si no se sabe
+    tempo_variable: bool = False  # el tempo no es fijo (musica en vivo): no se puede igualar a un BPM unico
 
     @classmethod
     def from_model(cls, track) -> 'TrackInfo':
@@ -53,6 +55,7 @@ class TrackInfo:
             id=track.id, title=track.title, bpm=track.bpm, camelot=track.camelot,
             energy=track.energy, duration=track.duration, cue_points=list(track.cue_points),
             vocal_last_end=track.vocal_last_end, vocal_first_start=track.vocal_first_start,
+            tempo_variable=is_variable_tempo(track.tempo_wobble_ms),
         )
 
 
