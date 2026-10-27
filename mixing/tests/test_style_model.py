@@ -160,7 +160,9 @@ class PersistenceTests(TestCase):
 
         estado = style_model_status()
 
-        self.assertEqual(estado, {'goodRecordings': 1, 'required': MIN_RECORDINGS, 'ready': False, 'enabled': False})
+        self.assertEqual(
+            {clave: valor for clave, valor in estado.items() if clave != 'nextTrack'},
+            {'goodRecordings': 1, 'required': MIN_RECORDINGS, 'ready': False, 'enabled': False})
 
     def test_el_estado_con_suficientes_mezclas_incluye_la_evaluacion(self):
         for _ in range(MIN_RECORDINGS):

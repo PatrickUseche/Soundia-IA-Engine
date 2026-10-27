@@ -77,7 +77,7 @@ alias. Antes de entrenar, un DJ debe escuchar las mezclas del Auto-DJ ([6.10]) y
 - [x] feat(ml): modelo de parámetros de transición entrenado solo con las mezclas buenas del DJ (compases de solape y cambio de graves por contexto, con encogimiento hacia las reglas) y su evaluación dejando una mezcla fuera contra las reglas actuales (`GET /api/mix/style-model`) [8.8]
 - [x] feat(ml): usar el modelo en el plan de transición solo si gana a las reglas (por parámetro), con interruptor (`POST /api/mix/style-model`, apagado por defecto) y vuelta atrás; el plan dice si usó el modelo (`source`) [8.9]
 - [x] chore(demo): modo de datos reales en el script de arranque (carpeta fija en lugar de la temporal) [8.10] (`iniciar-demo.ps1 -Datos <carpeta>`)
-- [ ] feat(ml): modelo de qué pista sigue, a partir de las secuencias reales (después de lo anterior) [8.11]
+- [x] feat(ml): modelo de qué pista sigue: aprende de las veces que el DJ elige una pista distinta de la que proponía la IA (`POST /api/mix/choices`), con evaluación dejando una fuera, interruptor compartido con el modelo de estilo y bono acotado que solo desempata [8.11]
 
 ## Fase 9 — Nube gratuita sin tarjeta (en curso)
 

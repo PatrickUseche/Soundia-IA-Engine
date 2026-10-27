@@ -11,7 +11,8 @@ from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
 from .backup import export_recordings, import_recordings
 from .models import MixRecording
 from .report import summarize
-from .style_model import choose_for, set_enabled, style_model_status
+from .next_track_model import bonuses, learned_weights, pair_features, record_choice
+from .style_model import choose_for, is_enabled, set_enabled, style_model_status
 from .recordings import QUALITIES, InvalidRecording, derive_features, parse_recording, parse_review
 from .timing import learned_advance, record_mix_timing, timing_count
 from .transition import plan_transition
@@ -116,13 +117,23 @@ def next_tracks(request):
         return JsonResponse({'error': str(error)}, status=404)
 
     candidates = [TrackInfo.from_model(track) for track in Track.objects.exclude(pk=track_id)]
-    ranking = rank_next_tracks(current, candidates, limit, current_weights())
+    learned = learned_weights(is_enabled())
+    # Con el modelo del DJ se ordena todo y se recorta despues: el bono puede subir una pista de fuera del top.
+    ranking = rank_next_tracks(current, candidates, len(candidates) if learned is not None and candidates else limit,
+                               current_weights())
+    extra = {}
+    if learned is not None:
+        values = bonuses(learned, [pair_features(current, info) for info, _ in ranking])
+        extra = {info.id: value for (info, _), value in zip(ranking, values)}
+        ranking = sorted(ranking, key=lambda item: (-(item[1].score + extra[item[0].id]), item[0].id))[:limit]
     return JsonResponse({
         'current': _track_info_to_dict(current),
         'candidates': [
-            {'track': _track_info_to_dict(info), 'compatibility': _compatibility_to_dict(result)}
+            {'track': _track_info_to_dict(info), 'compatibility': _compatibility_to_dict(result),
+             **({'learnedBonus': round(extra[info.id], 4)} if learned is not None else {})}
             for info, result in ranking
         ],
+        'source': 'model' if learned is not None else 'rules',
     })
 
 
@@ -311,6 +322,27 @@ def recordings(request):
         })
 
     return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+
+
+@csrf_exempt
+def choices(request):
+    """POST {fromTrackId, chosenTrackId, recommendedTrackId?}: el DJ eligio `chosenTrackId` tras `fromTrackId`; si la IA
+    habria propuesto otra (`recommendedTrackId`), de la diferencia aprende que pista sigue. 201 con las cuentas."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Metodo no permitido'}, status=405)
+    try:
+        data = _read_json_object(request)
+        origin = _get_track(_read_id(data, 'fromTrackId'))
+        chosen = _get_track(_read_id(data, 'chosenTrackId'))
+        recommended = _get_track(_read_id(data, 'recommendedTrackId')) if data.get('recommendedTrackId') is not None else None
+        if origin.pk == chosen.pk:
+            raise BadRequest('No se puede elegir como siguiente la misma pista.')
+    except BadRequest as error:
+        return JsonResponse({'error': str(error)}, status=400)
+    except NotFound as error:
+        return JsonResponse({'error': str(error)}, status=404)
+    record_choice(origin, chosen, recommended)
+    return JsonResponse(style_model_status()['nextTrack'], status=201)
 
 
 @csrf_exempt

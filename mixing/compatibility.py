@@ -48,6 +48,7 @@ class TrackInfo:
     vocal_last_end: float | None = None  # segundo en que acaba la ultima frase cantada; None si no se sabe
     vocal_first_start: float | None = None  # segundo en que empieza la primera frase cantada; None si no se sabe
     tempo_variable: bool = False  # el tempo no es fijo (musica en vivo): no se puede igualar a un BPM unico
+    genre: str = ''  # genero que puso el DJ (minusculas); vacio si no lo puso
 
     @classmethod
     def from_model(cls, track) -> 'TrackInfo':
@@ -55,7 +56,7 @@ class TrackInfo:
             id=track.id, title=track.title, bpm=track.bpm, camelot=track.camelot,
             energy=track.energy, duration=track.duration, cue_points=list(track.cue_points),
             vocal_last_end=track.vocal_last_end, vocal_first_start=track.vocal_first_start,
-            tempo_variable=is_variable_tempo(track.tempo_wobble_ms),
+            tempo_variable=is_variable_tempo(track.tempo_wobble_ms), genre=track.genre or '',
         )
 
 

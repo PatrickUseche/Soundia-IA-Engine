@@ -112,3 +112,21 @@ class StyleModelSetting(models.Model):
 
     enabled = models.BooleanField(default=False, help_text="Usar lo aprendido del DJ donde el modelo gane a las reglas.")
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class AutoDjChoice(models.Model):
+    """Lo que el DJ eligio como siguiente pista y lo que la IA habria propuesto: de ahi aprende que pista sigue.
+
+    Los rasgos de la transicion se guardan aqui (no se leen de las pistas despues) porque el DJ borra pistas al terminar
+    una sesion y las elecciones deben conservarse. `rejected_features` es null cuando el DJ acepto la propuesta.
+    """
+
+    from_track = models.ForeignKey(Track, null=True, on_delete=models.SET_NULL, related_name='+')
+    chosen_track = models.ForeignKey(Track, null=True, on_delete=models.SET_NULL, related_name='+')
+    recommended_track = models.ForeignKey(Track, null=True, on_delete=models.SET_NULL, related_name='+')
+    chosen_features = models.JSONField(help_text="Rasgos de la transicion elegida (ver next_track_model.FEATURES).")
+    rejected_features = models.JSONField(null=True, blank=True, help_text="Rasgos de la propuesta que el DJ descarto.")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
