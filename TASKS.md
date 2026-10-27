@@ -75,7 +75,7 @@ alias. Antes de entrenar, un DJ debe escuchar las mezclas del Auto-DJ ([6.10]) y
 - [x] feat(tracks): género de cada pista, editable, como dato de contexto del estilo (motor de IA, Spring y Angular) [8.6]
 - [ ] feat(audio): tempo variable (salsa y merengue en vivo lo mueven); es la [6.4], que sube de prioridad [8.7]
 - [x] feat(ml): modelo de parámetros de transición entrenado solo con las mezclas buenas del DJ (compases de solape y cambio de graves por contexto, con encogimiento hacia las reglas) y su evaluación dejando una mezcla fuera contra las reglas actuales (`GET /api/mix/style-model`) [8.8]
-- [ ] feat(ml): usar el modelo en el plan de transición solo si gana a las reglas, con interruptor y vuelta atrás [8.9]
+- [x] feat(ml): usar el modelo en el plan de transición solo si gana a las reglas (por parámetro), con interruptor (`POST /api/mix/style-model`, apagado por defecto) y vuelta atrás; el plan dice si usó el modelo (`source`) [8.9]
 - [x] chore(demo): modo de datos reales en el script de arranque (carpeta fija en lugar de la temporal) [8.10] (`iniciar-demo.ps1 -Datos <carpeta>`)
 - [ ] feat(ml): modelo de qué pista sigue, a partir de las secuencias reales (después de lo anterior) [8.11]
 

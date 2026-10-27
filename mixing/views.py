@@ -11,7 +11,7 @@ from .compatibility import ScoringWeights, TrackInfo, rank_next_tracks
 from .backup import export_recordings, import_recordings
 from .models import MixRecording
 from .report import summarize
-from .style_model import style_model_status
+from .style_model import choose_for, set_enabled, style_model_status
 from .recordings import QUALITIES, InvalidRecording, derive_features, parse_recording, parse_review
 from .timing import learned_advance, record_mix_timing, timing_count
 from .transition import plan_transition
@@ -137,14 +137,18 @@ def transition(request):
         to_id = _read_id(data, 'toTrackId')
         if from_id == to_id:
             raise BadRequest('No se puede hacer una transicion de una pista a si misma.')
-        origin = TrackInfo.from_model(_get_track(from_id))
-        destination = TrackInfo.from_model(_get_track(to_id))
+        origin_track = _get_track(from_id)
+        destination_track = _get_track(to_id)
     except BadRequest as error:
         return JsonResponse({'error': str(error)}, status=400)
     except NotFound as error:
         return JsonResponse({'error': str(error)}, status=404)
 
-    plan = plan_transition(origin, destination, current_weights(), advance=learned_advance())
+    origin = TrackInfo.from_model(origin_track)
+    destination = TrackInfo.from_model(destination_track)
+    learned = choose_for(origin_track, destination_track)
+    plan = plan_transition(origin, destination, current_weights(), advance=learned_advance(),
+                           bars_override=learned.bars, bass_swap_at=learned.bass_swap_at or 0.5)
     return JsonResponse({
         'fromTrackId': from_id,
         'toTrackId': to_id,
@@ -157,6 +161,10 @@ def transition(request):
         'compatibility': _compatibility_to_dict(plan.compatibility),
         'automation': [_automation_point_to_dict(point) for point in plan.automation],
         'mixOutAdvance': plan.mix_out_advance,
+        # De donde salen los compases y el cambio de graves: 'model' si se uso lo aprendido del DJ, 'rules' si no.
+        'source': 'model' if learned.used else 'rules',
+        'learnedBars': learned.bars is not None,
+        'learnedBassSwap': learned.bass_swap_at is not None,
     })
 
 
@@ -304,9 +312,19 @@ def recordings(request):
     return JsonResponse({'error': 'Metodo no permitido'}, status=405)
 
 
+@csrf_exempt
 def style_model(request):
-    """GET: cuantas mezclas buenas hay para aprender el estilo del DJ y si el modelo ya acierta mas que las reglas."""
-    if request.method != 'GET':
+    """GET: cuantas mezclas buenas hay para aprender el estilo del DJ, si el modelo ya acierta mas que las reglas y si
+    esta encendido. POST {enabled: true|false}: lo enciende o lo apaga (apagado = vuelta a las reglas)."""
+    if request.method == 'POST':
+        try:
+            enabled = _read_json_object(request).get('enabled')
+            if not isinstance(enabled, bool):
+                raise BadRequest("'enabled' debe ser true o false.")
+        except BadRequest as error:
+            return JsonResponse({'error': str(error)}, status=400)
+        set_enabled(enabled)
+    elif request.method != 'GET':
         return JsonResponse({'error': 'Metodo no permitido'}, status=405)
     return JsonResponse(style_model_status())
 
