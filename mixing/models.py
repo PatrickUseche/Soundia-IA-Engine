@@ -105,3 +105,10 @@ class MixRecording(models.Model):
 
     def __str__(self):
         return f"{self.dj}: {self.from_track_id} -> {self.to_track_id} ({self.overlap_seconds:.0f} s)"
+
+
+class StyleModelSetting(models.Model):
+    """El interruptor del modelo del estilo del DJ (una sola fila). Apagado, el plan usa solo las reglas."""
+
+    enabled = models.BooleanField(default=False, help_text="Usar lo aprendido del DJ donde el modelo gane a las reglas.")
+    updated_at = models.DateTimeField(auto_now=True)

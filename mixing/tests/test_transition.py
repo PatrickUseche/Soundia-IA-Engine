@@ -315,3 +315,29 @@ class PlanTransitionConVozDelInicioTests(SimpleTestCase):
 
         self.assertEqual(plan.style, STYLE_FADE)
         self.assertEqual(plan.bars, BARS_FADE)
+
+
+class LearnedStyleTests(SimpleTestCase):
+    def test_los_compases_aprendidos_reemplazan_a_los_de_la_regla(self):
+        plan = plan_transition(track(bpm=128), track(id=2, bpm=128), bars_override=BARS_QUICK)
+
+        self.assertEqual(plan.style, STYLE_BLEND)
+        self.assertEqual(plan.bars, BARS_QUICK)
+
+    def test_un_fundido_no_se_toca(self):
+        # 100 y 128 BPM no se igualan con el pitch: es un fundido corto.
+        plan = plan_transition(track(bpm=100), track(id=2, bpm=128), bars_override=BARS_SMOOTH)
+
+        self.assertEqual(plan.style, STYLE_FADE)
+        self.assertEqual(plan.bars, BARS_FADE)
+
+    def test_el_cambio_de_graves_se_hace_donde_indica_el_dj(self):
+        puntos = eq_automation(16, bass_swap_at=0.25)
+
+        primer_corte = next(p.position for p in puntos if p.low_a == 0.0)
+        self.assertEqual(primer_corte, 0.25)
+
+    def test_por_defecto_los_graves_cambian_a_mitad(self):
+        puntos = eq_automation(16)
+
+        self.assertEqual(next(p.position for p in puntos if p.low_a == 0.0), 0.5)

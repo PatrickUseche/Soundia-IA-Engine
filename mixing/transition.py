@@ -58,12 +58,12 @@ class TransitionPlan:
     mix_out_advance: float = 0.0  # segundos que se adelanta la salida por lo aprendido de los DJ
 
 
-def eq_automation(steps: int) -> list[AutomationPoint]:
+def eq_automation(steps: int, bass_swap_at: float = 0.5) -> list[AutomationPoint]:
     """Curvas de una mezcla clasica con `steps` + 1 puntos entre 0.0 y 1.0.
 
     - Crossfader de potencia constante (la suma de potencias es siempre 1: el volumen percibido no baja).
-    - Intercambio de graves (bass swap) a mitad: nunca suenan los graves de las dos pistas a la vez,
-      que es lo que embarra una mezcla.
+    - Intercambio de graves (bass swap) a mitad (o donde lo haga el DJ, `bass_swap_at`): nunca suenan los graves de las
+      dos pistas a la vez, que es lo que embarra una mezcla.
     - Medios y agudos se cruzan de forma lineal.
     """
     if steps < 1:
@@ -72,7 +72,7 @@ def eq_automation(steps: int) -> list[AutomationPoint]:
     points = []
     for i in range(steps + 1):
         p = i / steps
-        bass_swapped = p >= 0.5
+        bass_swapped = p >= bass_swap_at
         points.append(AutomationPoint(
             position=round(p, 4),
             gain_a=round(math.cos(p * math.pi / 2), 4),
@@ -141,10 +141,13 @@ def choose_mix_out(track: TrackInfo, transition_seconds: float) -> float:
 
 
 def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAULT_WEIGHTS,
-                    advance: float = 0.0) -> TransitionPlan:
+                    advance: float = 0.0, bars_override: int | None = None,
+                    bass_swap_at: float = 0.5) -> TransitionPlan:
     """Como pasar de la pista A a la pista B. Los pesos solo afectan a la puntuacion de compatibilidad.
 
     `advance` son los segundos que la mezcla sale antes de lo normal, aprendidos de cuando el DJ pidio mezclar antes.
+    `bars_override` y `bass_swap_at` son lo aprendido del estilo del DJ (ver `style_model`): los compases de una mezcla
+    larga (un fundido no se toca) y el punto del solape en que se cambian los graves.
     """
     result = compatibility(a, b, weights)
     match = result.tempo_match
@@ -153,6 +156,8 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
     bar_seconds = BEATS_PER_BAR * 60.0 / a.bpm
     mix_in_at = b.cue_points[0] if b.cue_points else 0.0
     if style == STYLE_BLEND:
+        if bars_override is not None:
+            bars = bars_override
         bars = fit_bars_to_intro(b, bars, bar_seconds, mix_in_at)
     seconds = round(bars * bar_seconds, 3)
     return TransitionPlan(
@@ -165,6 +170,6 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
         tempo_match=match,
         compatibility=result,
         # Una automatizacion por pulso.
-        automation=eq_automation(bars * BEATS_PER_BAR),
+        automation=eq_automation(bars * BEATS_PER_BAR, bass_swap_at),
         mix_out_advance=advance,
     )

@@ -18,9 +18,11 @@ from dataclasses import dataclass
 from math import log2
 from statistics import median
 
+from django.db.models import Count, Max, Sum
+
 from audio.camelot import harmonic_distance
 
-from .models import MixRecording
+from .models import MixRecording, StyleModelSetting
 from .recordings import derive_features
 from .tempo import match_tempo
 from .transition import BARS_NORMAL, BARS_QUICK, BARS_SMOOTH, SMOOTH_PITCH_LIMIT
@@ -135,10 +137,6 @@ def load_samples() -> list[Sample]:
     return [_sample_of(recording) for recording in reversed(recordings)]
 
 
-def count_good() -> int:
-    return MixRecording.objects.filter(quality='good').count()
-
-
 def _sample_of(recording: MixRecording) -> Sample:
     a, b = recording.snapshot_a, recording.snapshot_b
     context = context_of(a['bpm'], a['camelot'], b['bpm'], b['camelot'], recording.genre_a or recording.genre_b)
@@ -191,10 +189,102 @@ def evaluate(samples: list[Sample]) -> dict:
     return {'bars': verdict(bars_model, bars_rules), 'bassSwap': verdict(swap_model, swap_rules)}
 
 
+
+# --- uso en el plan: interruptor, cache y decision ------------------------------------------------------------------
+
+
+def is_enabled() -> bool:
+    return bool(StyleModelSetting.objects.values_list('enabled', flat=True).first())
+
+
+def set_enabled(enabled: bool) -> None:
+    """Enciende o apaga el modelo. Apagarlo es la vuelta atras: el siguiente plan usa solo las reglas."""
+    setting = StyleModelSetting.objects.first() or StyleModelSetting()
+    setting.enabled = enabled
+    setting.save()
+
+
+@dataclass(frozen=True)
+class _Trained:
+    signature: tuple
+    good: int
+    model: StyleModel | None
+    evaluation: dict | None
+
+
+_cache: _Trained | None = None
+
+
+def reset_cache() -> None:
+    """Olvida el modelo calculado (las pruebas lo usan para no depender del orden)."""
+    global _cache
+    _cache = None
+
+
+def _trained() -> _Trained:
+    """El modelo y su evaluacion, recalculados solo cuando cambia el conjunto de mezclas buenas.
+
+    Evaluar cuesta O(n^2) y un plan se pide muchas veces con las mismas grabaciones: la huella (cuantas, la ultima, la
+    suma de ids y la fecha de la mas nueva: un id borrado puede reutilizarse) detecta que se anadio, se borro o se reclasifico una, sin leer ninguna. La cache es por proceso; si hay
+    varios (gunicorn), cada uno calcula la suya una vez.
+    """
+    global _cache
+    stats = MixRecording.objects.filter(quality='good').aggregate(
+        n=Count('id'), last=Max('id'), total=Sum('id'), newest=Max('created_at'))
+    signature = (stats['n'], stats['last'], stats['total'], stats['newest'])
+    if _cache is not None and _cache.signature == signature:
+        return _cache
+    good = stats['n']
+    if good < MIN_RECORDINGS:
+        _cache = _Trained(signature, good, None, None)
+    else:
+        samples = load_samples()
+        _cache = _Trained(signature, good, fit(samples), evaluate(samples))
+    return _cache
+
+
+@dataclass(frozen=True)
+class StyleChoice:
+    """Lo que el modelo cambia en un plan; None en cada campo = se queda lo de las reglas."""
+
+    bars: int | None = None
+    bass_swap_at: float | None = None
+
+    @property
+    def used(self) -> bool:
+        return self.bars is not None or self.bass_swap_at is not None
+
+
+def choose_for(origin, destination) -> StyleChoice:
+    """Lo aprendido del DJ para pasar de `origin` a `destination` (modelos `Track`).
+
+    Solo cambia un parametro si el modelo esta encendido y gano a las reglas en la evaluacion de ESE parametro.
+    """
+    if not is_enabled():
+        return StyleChoice()
+    trained = _trained()
+    if trained.model is None or trained.evaluation is None:
+        return StyleChoice()
+    context = context_of(origin.bpm, origin.camelot, destination.bpm, destination.camelot,
+                         origin.genre or destination.genre)
+    bars = trained.model.predict_bars(context) if trained.evaluation['bars']['wins'] and context.blendable else None
+    swap = trained.model.predict_bass_swap(context) if trained.evaluation['bassSwap']['wins'] else None
+    return StyleChoice(bars=bars, bass_swap_at=swap)
+
+
 def style_model_status() -> dict:
-    """Lo que se muestra al DJ: cuantas mezclas buenas hay, cuantas faltan y como le va al modelo frente a las reglas."""
-    good = count_good()
-    status = {'goodRecordings': good, 'required': MIN_RECORDINGS, 'ready': good >= MIN_RECORDINGS}
-    if status['ready']:
-        status['evaluation'] = evaluate(load_samples())
+    """Lo que se muestra al DJ: cuantas mezclas buenas hay, cuantas faltan, como le va al modelo frente a las reglas y
+    si esta encendido (y, por tanto, que parametros esta usando ahora)."""
+    trained = _trained()
+    enabled = is_enabled()
+    status = {
+        'goodRecordings': trained.good, 'required': MIN_RECORDINGS, 'ready': trained.evaluation is not None,
+        'enabled': enabled,
+    }
+    if trained.evaluation is not None:
+        status['evaluation'] = trained.evaluation
+        status['inUse'] = {
+            'bars': enabled and trained.evaluation['bars']['wins'],
+            'bassSwap': enabled and trained.evaluation['bassSwap']['wins'],
+        }
     return status

@@ -5,9 +5,10 @@ from django.test import TestCase
 from audio.camelot import harmonic_distance
 
 from mixing.models import MixRecording
+from audio.models import Track
 from mixing.style_model import (
-    BARS_CHOICES, MIN_RECORDINGS, PRIOR_WEIGHT, Context, Sample, context_of, evaluate, fit, load_samples, rule_bars,
-    style_model_status,
+    BARS_CHOICES, MIN_RECORDINGS, PRIOR_WEIGHT, Context, Sample, choose_for, context_of, evaluate, fit, is_enabled,
+    load_samples, reset_cache, rule_bars, set_enabled, style_model_status,
 )
 from mixing.tempo import match_tempo
 from mixing.transition import choose_style_and_bars
@@ -136,6 +137,9 @@ class EvaluationTests(TestCase):
 
 
 class PersistenceTests(TestCase):
+    def setUp(self):
+        reset_cache()
+
     def test_solo_aprende_de_las_mezclas_buenas(self):
         guardar(quality='good')
         guardar(quality='unreviewed')
@@ -156,7 +160,7 @@ class PersistenceTests(TestCase):
 
         estado = style_model_status()
 
-        self.assertEqual(estado, {'goodRecordings': 1, 'required': MIN_RECORDINGS, 'ready': False})
+        self.assertEqual(estado, {'goodRecordings': 1, 'required': MIN_RECORDINGS, 'ready': False, 'enabled': False})
 
     def test_el_estado_con_suficientes_mezclas_incluye_la_evaluacion(self):
         for _ in range(MIN_RECORDINGS):
@@ -175,6 +179,122 @@ class PersistenceTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.json()['goodRecordings'], 1)
 
-    def test_la_ruta_solo_acepta_get(self):
-        self.assertEqual(self.client.post('/api/mix/style-model').status_code, 405)
+    def test_la_ruta_no_acepta_otros_metodos(self):
+        self.assertEqual(self.client.put('/api/mix/style-model').status_code, 405)
 
+
+
+def pistas():
+    a = Track.objects.create(title='A', duration=300.0, bpm=120.0, key='C major', camelot='8B', energy=0.5,
+                             cue_points=[0.0, 60.0, 270.0], genre='salsa')
+    b = Track.objects.create(title='B', duration=240.0, bpm=124.0, key='G major', camelot='9B', energy=0.7,
+                             cue_points=[0.0, 60.0, 200.0], genre='')
+    return a, b
+
+
+class UseInPlanTests(TestCase):
+    """8.9: el modelo solo cambia el plan si esta encendido y gana a las reglas."""
+
+    def setUp(self):
+        reset_cache()
+        self.a, self.b = pistas()
+
+    def aprender(self, mezclas=MIN_RECORDINGS, overlap=16.0):
+        # La regla para A -> B (tonalidad vecina, ajuste del 3 %) son 16 compases; estas mezclas son de 8.
+        for _ in range(mezclas):
+            guardar(overlap=overlap)
+
+    def plan(self):
+        respuesta = self.client.post('/api/mix/transition', {'fromTrackId': self.a.id, 'toTrackId': self.b.id},
+                                     content_type='application/json')
+        self.assertEqual(respuesta.status_code, 200)
+        return respuesta.json()
+
+    def test_por_defecto_esta_apagado_y_manda_la_regla(self):
+        self.aprender()
+
+        plan = self.plan()
+
+        self.assertFalse(is_enabled())
+        self.assertEqual(plan['source'], 'rules')
+        self.assertEqual(plan['bars'], 16)
+
+    def test_encendido_y_ganando_usa_los_compases_del_dj(self):
+        self.aprender()
+        set_enabled(True)
+
+        plan = self.plan()
+
+        self.assertEqual(plan['source'], 'model')
+        self.assertTrue(plan['learnedBars'])
+        self.assertEqual(plan['bars'], 8)
+
+    def test_apagarlo_devuelve_las_reglas(self):
+        self.aprender()
+        set_enabled(True)
+        self.assertEqual(self.plan()['bars'], 8)
+
+        set_enabled(False)
+
+        plan = self.plan()
+        self.assertEqual(plan['source'], 'rules')
+        self.assertEqual(plan['bars'], 16)
+
+    def test_encendido_pero_con_pocas_mezclas_no_cambia_nada(self):
+        self.aprender(mezclas=MIN_RECORDINGS - 1)
+        set_enabled(True)
+
+        self.assertEqual(self.plan()['source'], 'rules')
+        self.assertFalse(choose_for(self.a, self.b).used)
+
+    def test_si_el_dj_ya_sigue_la_regla_el_modelo_no_cambia_los_compases(self):
+        self.aprender(overlap=32.0)  # 16 compases: lo mismo que la regla
+        set_enabled(True)
+
+        plan = self.plan()
+
+        self.assertFalse(plan['learnedBars'])
+        self.assertEqual(plan['bars'], 16)
+
+    def test_un_dj_que_cambia_los_graves_antes_mueve_el_punto_del_cambio(self):
+        for _ in range(MIN_RECORDINGS + 5):
+            guardar(overlap=32.0, low=[[0.0, 1.0], [9.6, 1.0], [11.2, 0.0], [32.0, 0.0]])
+        set_enabled(True)
+
+        plan = self.plan()
+
+        self.assertTrue(plan['learnedBassSwap'])
+        graves = [p['lowA'] for p in plan['automation']]
+        primer_corte = next(i for i, valor in enumerate(graves) if valor == 0.0)
+        self.assertLess(primer_corte / (len(graves) - 1), 0.5)
+
+    def test_la_huella_detecta_mezclas_nuevas(self):
+        self.aprender(mezclas=MIN_RECORDINGS)
+        self.assertEqual(style_model_status()['goodRecordings'], MIN_RECORDINGS)
+
+        guardar()
+
+        self.assertEqual(style_model_status()['goodRecordings'], MIN_RECORDINGS + 1)
+
+    def test_el_estado_dice_que_parametros_se_estan_usando(self):
+        self.aprender()
+        self.assertEqual(style_model_status()['inUse'], {'bars': False, 'bassSwap': False})
+
+        set_enabled(True)
+
+        self.assertTrue(style_model_status()['inUse']['bars'])
+
+    def test_la_ruta_enciende_y_apaga(self):
+        self.aprender()
+
+        encendido = self.client.post('/api/mix/style-model', {'enabled': True}, content_type='application/json')
+        apagado = self.client.post('/api/mix/style-model', {'enabled': False}, content_type='application/json')
+
+        self.assertTrue(encendido.json()['enabled'])
+        self.assertFalse(apagado.json()['enabled'])
+
+    def test_la_ruta_rechaza_un_valor_que_no_es_booleano(self):
+        respuesta = self.client.post('/api/mix/style-model', {'enabled': 'si'}, content_type='application/json')
+
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertFalse(is_enabled())
