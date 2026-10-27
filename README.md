@@ -198,6 +198,8 @@ Errores: `400` archivo ausente o ilegible, `413` demasiado grande, `422` válido
 ### Rejilla de pulsos (`audio/beatgrid.py`)
 
 Para mezclar a compás no basta con igualar el tempo: hay que saber en qué instante exacto suena cada golpe.
+Cada pista mide también si **mantiene un tempo fijo**: la fase de los golpes se mide por tramos de 5 s y `grid.wobbleMs` es cuánto se aparta de una recta (≈0 con tempo fijo, decenas de ms si la banda acelera y frena). Desde 40 ms la pista es `variableTempo` y el plan de transición con ella es un fundido corto en vez de una mezcla igualada a un BPM; `/api/mix/transition` lo dice en `variableTempo`. El umbral es una estimación que `manage.py analyze_grid` permite revisar con tus pistas.
+
 Cada pista guarda su **rejilla**: `bpm` afinado, `grid.offset` (segundo del primer pulso), `grid.downbeat`
 (segundo del primer tiempo del compás) y `grid.confidence` (0-1: seguridad de que ese sea el «1»). Los pulsos
 caen en `offset + k · 60/bpm`. `grid` es `null` si la pista no tiene un ritmo claro.

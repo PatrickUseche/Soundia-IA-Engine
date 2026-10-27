@@ -56,6 +56,7 @@ class TransitionPlan:
     compatibility: Compatibility
     automation: list[AutomationPoint]
     mix_out_advance: float = 0.0  # segundos que se adelanta la salida por lo aprendido de los DJ
+    variable_tempo: bool = False  # alguna de las pistas no tiene un tempo fijo: por eso el plan es un fundido
 
 
 def eq_automation(steps: int, bass_swap_at: float = 0.5) -> list[AutomationPoint]:
@@ -152,6 +153,11 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
     result = compatibility(a, b, weights)
     match = result.tempo_match
     style, bars = choose_style_and_bars(match, harmonic_distance(a.camelot, b.camelot))
+    variable_tempo = a.tempo_variable or b.tempo_variable
+    if variable_tempo:
+        # Un BPM unico no describe una pista que acelera y frena: igualar el pitch y alinear los pulsos se desfasaria a
+        # los pocos compases. Se hace un fundido corto, que no depende de que los golpes coincidan.
+        style, bars = STYLE_FADE, BARS_FADE
 
     bar_seconds = BEATS_PER_BAR * 60.0 / a.bpm
     mix_in_at = b.cue_points[0] if b.cue_points else 0.0
@@ -172,4 +178,5 @@ def plan_transition(a: TrackInfo, b: TrackInfo, weights: ScoringWeights = DEFAUL
         # Una automatizacion por pulso.
         automation=eq_automation(bars * BEATS_PER_BAR, bass_swap_at),
         mix_out_advance=advance,
+        variable_tempo=variable_tempo,
     )

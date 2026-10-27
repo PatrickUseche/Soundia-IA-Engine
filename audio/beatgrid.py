@@ -40,6 +40,15 @@ PHASE_SMOOTHING_BINS = 3.0
 DRIFT_SEGMENT_SECONDS = 10.0
 MIN_DRIFT_SEGMENTS = 3
 
+# Tempo variable: se mide la fase de los golpes en tramos cortos y se ve cuanto se aparta de la recta que forman (una
+# banda en vivo que acelera y frena, un tempo que sube). Con un tempo fijo la fase no se mueve de un tramo a otro.
+WOBBLE_SEGMENT_SECONDS = 5.0
+MIN_WOBBLE_SEGMENTS = 4
+# Desviacion tipica de la fase (ms) a partir de la cual el tempo se considera variable: un golpe desplazado mas que esto
+# se oye como un desfase al mezclar con otra pista. Es una estimacion (un golpe suena desfasado desde unos 30-40 ms), no
+# un valor medido con musica real; se ajusta con `manage.py analyze_grid` sobre las pistas del DJ.
+VARIABLE_TEMPO_WOBBLE_MS = 40.0
+
 # Afinado de la fase con la subida real de energia.
 ATTACK_WINDOW_SECONDS = 0.06
 ATTACK_ENVELOPE_CUTOFF_HZ = 60
@@ -70,6 +79,7 @@ class BeatGrid:
     downbeat_offset: float  # segundo del primer "primer tiempo" de compas, en el primer compas (idem)
     beat_strength: float  # 0-1: cuanto se concentran los ataques en los pulsos; bajo = sin ritmo claro
     downbeat_confidence: float  # 0-1: cuanto destaca el primer tiempo sobre los otros tres pulsos
+    wobble_ms: float | None = None  # cuanto oscila la fase de los golpes (ms); None si la pista es muy corta
 
 
 def _onset_envelope(y: np.ndarray, sr: int) -> np.ndarray:
@@ -111,12 +121,25 @@ def _refine_bpm_by_drift(envelope: np.ndarray, frame_seconds: float, bpm: float)
     Con el tempo exacto, la fase de los golpes es la misma al principio que al final; si el tempo falla en
     una centesima, la fase se va desplazando milisegundos. La pendiente de ese desplazamiento da la correccion.
     """
-    period = 60.0 / bpm
-    segment_frames = int(DRIFT_SEGMENT_SECONDS / frame_seconds)
-    count = len(envelope) // segment_frames
-    if count < MIN_DRIFT_SEGMENTS:
+    found = _segment_phases(envelope, frame_seconds, bpm, DRIFT_SEGMENT_SECONDS, MIN_DRIFT_SEGMENTS)
+    if found is None:
         return bpm
+    centers, relative = found
+    slope = float(np.polyfit(centers, relative, 1)[0])  # segundos de fase por segundo de pista
+    return bpm / (1.0 + slope)
 
+
+def _segment_phases(envelope: np.ndarray, frame_seconds: float, bpm: float, segment_seconds: float,
+                    minimum: int) -> tuple[list[float], np.ndarray] | None:
+    """Centro (s) y fase (s, relativa a la del primer tramo y llevada a +-medio periodo) de los golpes de cada tramo.
+
+    None si hay menos de `minimum` tramos con ataques. Es O(n) sobre la envolvente: cada tramo se pliega una vez.
+    """
+    period = 60.0 / bpm
+    segment_frames = int(segment_seconds / frame_seconds)
+    count = len(envelope) // segment_frames
+    if count < minimum:
+        return None
     centers, phases = [], []
     for index in range(count):
         start = index * segment_frames
@@ -127,13 +150,26 @@ def _refine_bpm_by_drift(envelope: np.ndarray, frame_seconds: float, bpm: float)
             continue
         centers.append((start + segment_frames / 2) * frame_seconds)
         phases.append((_phase_peak(histogram) + 0.5) / FINE_BINS * period)
-    if len(phases) < MIN_DRIFT_SEGMENTS:
-        return bpm
-
-    # Fases relativas a la primera, llevadas a +-medio periodo para no contar vueltas completas.
+    if len(phases) < minimum:
+        return None
     relative = ((np.array(phases) - phases[0] + period / 2) % period) - period / 2
-    slope = float(np.polyfit(centers, relative, 1)[0])  # segundos de fase por segundo de pista
-    return bpm / (1.0 + slope)
+    return centers, relative
+
+
+def tempo_wobble_ms(envelope: np.ndarray, frame_seconds: float, bpm: float) -> float | None:
+    """Desviacion tipica (ms) de la fase de los golpes respecto a la recta que forman: ~0 con un tempo fijo, grande si
+    la pista acelera, frena u oscila. None si no hay audio para medirlo."""
+    found = _segment_phases(envelope, frame_seconds, bpm, WOBBLE_SEGMENT_SECONDS, MIN_WOBBLE_SEGMENTS)
+    if found is None:
+        return None
+    centers, relative = found
+    fit = np.polyval(np.polyfit(centers, relative, 1), centers)
+    return float(np.sqrt(np.mean((relative - fit) ** 2)) * 1000.0)
+
+
+def is_variable_tempo(wobble_ms: float | None) -> bool:
+    """La pista no mantiene un tempo fijo: no se puede igualar con otra a un BPM unico sin que se desfasen."""
+    return wobble_ms is not None and wobble_ms >= VARIABLE_TEMPO_WOBBLE_MS
 
 
 def _smooth_circular(histogram: np.ndarray) -> np.ndarray:
@@ -230,8 +266,10 @@ def estimate_grid(y: np.ndarray, sr: int, bpm_hint: float) -> BeatGrid:
     position, confidence = _downbeat(y, sr, corrected, period)
     tolerance = EARLY_BEAT_TOLERANCE_SECONDS
     downbeat = ((corrected + position * period + tolerance) % (BEATS_PER_BAR * period)) - tolerance
+    wobble = tempo_wobble_ms(envelope, frame_seconds, bpm)
     return BeatGrid(
         bpm=round(bpm, 3),
+        wobble_ms=round(wobble, 1) if wobble is not None else None,
         offset=round(((downbeat + tolerance) % period) - tolerance, 4),
         downbeat_offset=round(downbeat, 4),
         beat_strength=round(strength, 3),

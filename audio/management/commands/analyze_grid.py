@@ -45,7 +45,9 @@ class Command(BaseCommand):
             pista.grid_offset = analisis.grid_offset
             pista.grid_downbeat = analisis.grid_downbeat
             pista.grid_confidence = analisis.grid_confidence
-            pista.save(update_fields=['bpm', 'cue_points', 'grid_offset', 'grid_downbeat', 'grid_confidence'])
+            pista.tempo_wobble_ms = analisis.tempo_wobble_ms
+            pista.save(update_fields=['bpm', 'cue_points', 'grid_offset', 'grid_downbeat', 'grid_confidence',
+                                      'tempo_wobble_ms'])
             self.stdout.write(self.style.SUCCESS(
                 f'  {pista.title}: {pista.bpm:.3f} BPM, primer tiempo en {pista.grid_downbeat:.3f} s '
                 f'(confianza {pista.grid_confidence:.2f})'

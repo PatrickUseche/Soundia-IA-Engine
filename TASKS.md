@@ -73,7 +73,7 @@ alias. Antes de entrenar, un DJ debe escuchar las mezclas del Auto-DJ ([6.10]) y
 - [x] feat(learning): modo aprendizaje en Angular que graba las transiciones manuales (entrada de B, solape y curvas) [8.4] (`learning-panel`, `mix-recorder` y `transition-detector`)
 - [x] feat(learning): pantalla para revisar las grabaciones (buena, descartada, notas) [8.5] (`/grabaciones` en Angular)
 - [x] feat(tracks): género de cada pista, editable, como dato de contexto del estilo (motor de IA, Spring y Angular) [8.6]
-- [ ] feat(audio): tempo variable (salsa y merengue en vivo lo mueven); es la [6.4], que sube de prioridad [8.7]
+- [x] feat(audio): tempo variable (salsa y merengue en vivo lo mueven): se mide cuánto oscila la fase de los golpes por tramos de 5 s (`wobbleMs`); si pasa de 40 ms la pista es de tempo variable (`variableTempo`) y la transición con ella es un fundido, porque no se puede igualar a un BPM único. El umbral es una estimación: con pulsos sintéticos separa bien (fijo 0 ms, acelerando 4 BPM 95 ms), pero no se midió con música real [8.7]
 - [x] feat(ml): modelo de parámetros de transición entrenado solo con las mezclas buenas del DJ (compases de solape y cambio de graves por contexto, con encogimiento hacia las reglas) y su evaluación dejando una mezcla fuera contra las reglas actuales (`GET /api/mix/style-model`) [8.8]
 - [x] feat(ml): usar el modelo en el plan de transición solo si gana a las reglas (por parámetro), con interruptor (`POST /api/mix/style-model`, apagado por defecto) y vuelta atrás; el plan dice si usó el modelo (`source`) [8.9]
 - [x] chore(demo): modo de datos reales en el script de arranque (carpeta fija en lugar de la temporal) [8.10] (`iniciar-demo.ps1 -Datos <carpeta>`)

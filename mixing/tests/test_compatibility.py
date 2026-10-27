@@ -100,7 +100,7 @@ class CompatibilityTests(SimpleTestCase):
     def test_from_model_copia_los_datos_de_un_track(self):
         modelo = SimpleNamespace(
             id=7, title='tema', bpm=126.5, camelot='5A', energy=0.7, duration=240.0, cue_points=[0.0, 32.0],
-            vocal_last_end=228.5, vocal_first_start=12.5,
+            vocal_last_end=228.5, vocal_first_start=12.5, tempo_wobble_ms=None,
         )
 
         info = TrackInfo.from_model(modelo)

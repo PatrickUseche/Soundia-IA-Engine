@@ -58,3 +58,17 @@ def to_wav_bytes(y, sr=SR):
         wav.setframerate(sr)
         wav.writeframes(pcm.tobytes())
     return buffer.getvalue()
+
+
+def variable_click_track(bpm_start, bpm_end, seconds, sr=SR, amplitude=0.9):
+    """Pulsos cuyo tempo sube (o baja) de forma continua de `bpm_start` a `bpm_end`: una banda que acelera."""
+    y = np.zeros(int(seconds * sr))
+    burst_t = _time(0.05, sr)
+    burst = np.sin(2 * np.pi * 1000 * burst_t) * np.exp(-burst_t * 90)
+    beat = 0.0
+    while beat < seconds - 0.06:
+        start = int(beat * sr)
+        y[start:start + len(burst)] += burst * amplitude
+        bpm = bpm_start + (bpm_end - bpm_start) * beat / seconds
+        beat += 60.0 / bpm
+    return y

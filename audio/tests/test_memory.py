@@ -46,7 +46,7 @@ class AnalizarLiberaMemoriaTests(TestCase):
     def test_libera_la_memoria_despues_de_un_analisis_correcto(self):
         analisis = mock.Mock(
             duration=10.0, bpm=120.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0], grid_offset=None,
-            grid_downbeat=None, grid_confidence=None)
+            grid_downbeat=None, grid_confidence=None, tempo_wobble_ms=None)
         with mock.patch('audio.views.analyze_file', return_value=analisis), \
                 mock.patch('audio.views.release_memory') as liberar:
             self.subir()
