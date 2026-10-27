@@ -22,6 +22,7 @@ from django.db.models import Count, Max, Sum
 
 from audio.camelot import harmonic_distance
 
+from . import next_track_model
 from .models import MixRecording, StyleModelSetting
 from .recordings import derive_features
 from .tempo import match_tempo
@@ -287,4 +288,5 @@ def style_model_status() -> dict:
             'bars': enabled and trained.evaluation['bars']['wins'],
             'bassSwap': enabled and trained.evaluation['bassSwap']['wins'],
         }
+    status['nextTrack'] = next_track_model.status(enabled)
     return status
