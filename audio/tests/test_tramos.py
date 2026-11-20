@@ -23,10 +23,10 @@ class TonalidadPorTramosTests(SimpleTestCase):
     def test_el_cromagrama_medio_por_tramos_coincide_con_el_entero(self):
         y = cancion_de_prueba(bpm=120, seconds=100)  # mas de dos tramos de 1280 frames
 
-        partes = analysis._chunked_frames(
+        name_parts = analysis._chunked_frames(
             y, analysis.CHROMA_CHUNK_FRAMES, analysis.CHROMA_MARGIN_FRAMES,
-            lambda tramo: librosa.feature.chroma_cqt(y=tramo, sr=SR, hop_length=analysis.ANALYSIS_HOP))
-        por_tramos = np.concatenate(partes, axis=1)
+            lambda segment_span: librosa.feature.chroma_cqt(y=segment_span, sr=SR, hop_length=analysis.ANALYSIS_HOP))
+        por_tramos = np.concatenate(name_parts, axis=1)
         entero = librosa.feature.chroma_cqt(y=y, sr=SR, hop_length=analysis.ANALYSIS_HOP)
 
         self.assertEqual(por_tramos.shape, entero.shape)
@@ -46,10 +46,10 @@ class TramoMasRitmicoTests(SimpleTestCase):
         envolvente = np.zeros(100)
         envolvente[60:70] = 1.0
 
-        tramo = analysis._most_rhythmic_excerpt(envolvente, 20)
+        segment_span = analysis._most_rhythmic_excerpt(envolvente, 20)
 
-        self.assertEqual(len(tramo), 20)
-        self.assertEqual(tramo.sum(), 10.0)
+        self.assertEqual(len(segment_span), 20)
+        self.assertEqual(segment_span.sum(), 10.0)
 
     def test_el_tempo_de_una_pista_larga_sale_del_tramo_mas_ritmico(self):
         y = cancion_de_prueba(bpm=124, seconds=200)

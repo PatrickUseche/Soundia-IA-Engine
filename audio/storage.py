@@ -22,8 +22,8 @@ def local_audio_path(field_file):
     extension = os.path.splitext(field_file.name)[1]
     temporal = tempfile.NamedTemporaryFile(suffix=extension, delete=False)
     try:
-        with temporal, field_file.storage.open(field_file.name, 'rb') as origen:
-            shutil.copyfileobj(origen, temporal)
+        with temporal, field_file.storage.open(field_file.name, 'rb') as origin_name:
+            shutil.copyfileobj(origin_name, temporal)
         yield temporal.name
     finally:
         with contextlib.suppress(OSError):
@@ -44,10 +44,10 @@ def safe_audio_name(name: str) -> str:
     tildes se quitan (Qué -> Que), el resto de simbolos pasa a guion bajo y la extension se conserva en minusculas. El
     titulo que ve el usuario sigue siendo el nombre original: esto es solo el nombre interno del archivo."""
     base, extension = os.path.splitext(os.path.basename(name.replace(chr(92), '/')))
-    sin_tildes = unicodedata.normalize('NFKD', base).encode('ascii', 'ignore').decode('ascii')
-    limpio = _REPEATED.sub('_', _UNSAFE.sub('_', sin_tildes)).strip('._-')
+    without_accents = unicodedata.normalize('NFKD', base).encode('ascii', 'ignore').decode('ascii')
+    cleaned = _REPEATED.sub('_', _UNSAFE.sub('_', without_accents)).strip('._-')
     extension = _UNSAFE.sub('', unicodedata.normalize('NFKD', extension).encode('ascii', 'ignore').decode('ascii')).lower()
     if extension and not extension.startswith('.'):
         extension = '.' + extension
-    limpio = limpio[:max(MAX_AUDIO_NAME_LENGTH - len(extension), 1)].rstrip('._-') or 'audio'
-    return limpio + extension
+    cleaned = cleaned[:max(MAX_AUDIO_NAME_LENGTH - len(extension), 1)].rstrip('._-') or 'audio'
+    return cleaned + extension

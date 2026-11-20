@@ -226,9 +226,9 @@ class HistorialDePesosTests(TestCase):
         crear_version(1, tempo=0.1, harmonic=0.8, energy=0.1)
         crear_version(2, tempo=0.5, harmonic=0.3, energy=0.2, active=True)
 
-        elegida = restore_weights(1)
+        chosen_item = restore_weights(1)
 
-        self.assertEqual(elegida.version, 1)
+        self.assertEqual(chosen_item.version, 1)
         self.assertEqual(active_weights().version, 1)
         self.assertEqual(current_weights().harmonic, 0.8)
         self.assertEqual(LearnedWeights.objects.filter(active=True).count(), 1)
@@ -272,9 +272,9 @@ class HistorialDePesosTests(TestCase):
         self.valorar(MIN_SAMPLES)
         versiones = LearnedWeights.objects.count()
 
-        borradas = reset_weights()
+        deleted_count = reset_weights()
 
-        self.assertEqual(borradas, 0)
+        self.assertEqual(deleted_count, 0)
         self.assertEqual(current_weights(), DEFAULT_WEIGHTS)
         self.assertIsNone(active_weights())
         self.assertEqual(LearnedWeights.objects.count(), versiones)
@@ -292,9 +292,9 @@ class HistorialDePesosTests(TestCase):
     def test_reset_weights_olvidando_las_valoraciones_empieza_de_cero(self):
         self.valorar(MIN_SAMPLES)
 
-        borradas = reset_weights(forget_ratings=True)
+        deleted_count = reset_weights(forget_ratings=True)
 
-        self.assertEqual(borradas, MIN_SAMPLES * 2)
+        self.assertEqual(deleted_count, MIN_SAMPLES * 2)
         self.assertEqual(feedback_count(), 0)
         self.assertEqual(LearnedWeights.objects.count(), 0)
         self.assertEqual(current_weights(), DEFAULT_WEIGHTS)

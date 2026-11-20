@@ -25,34 +25,34 @@ class _Instancia:
     pass
 
 
-def archivo(storage, nombre):
+def audio_path_name(storage, file_name):
     campo = type('Campo', (), {'storage': storage})()
-    return FieldFile(_Instancia(), campo, nombre)
+    return FieldFile(_Instancia(), campo, file_name)
 
 
 class LocalAudioPathTests(SimpleTestCase):
     def test_con_disco_da_la_ruta_real_sin_copiar(self):
         import tempfile
-        with tempfile.TemporaryDirectory() as carpeta:
-            storage = FileSystemStorage(location=carpeta)
-            nombre = storage.save('tracks/a.wav', ContentFile(b'RIFF'))
+        with tempfile.TemporaryDirectory() as folder:
+            storage = FileSystemStorage(location=folder)
+            file_name = storage.save('tracks/a.wav', ContentFile(b'RIFF'))
 
-            with local_audio_path(archivo(storage, nombre)) as ruta:
-                self.assertEqual(os.path.normcase(ruta), os.path.normcase(os.path.join(carpeta, nombre)))
+            with local_audio_path(audio_path_name(storage, file_name)) as file_path:
+                self.assertEqual(os.path.normcase(file_path), os.path.normcase(os.path.join(folder, file_name)))
 
     def test_sin_ruta_descarga_a_un_temporal_con_la_misma_extension(self):
-        with local_audio_path(archivo(SoloLecturaStorage(b'datos de audio'), 'tracks/a.mp3')) as ruta:
-            self.assertTrue(ruta.endswith('.mp3'))
-            with open(ruta, 'rb') as copia:
-                self.assertEqual(copia.read(), b'datos de audio')
+        with local_audio_path(audio_path_name(SoloLecturaStorage(b'datos de audio'), 'tracks/a.mp3')) as file_path:
+            self.assertTrue(file_path.endswith('.mp3'))
+            with open(file_path, 'rb') as backup_data:
+                self.assertEqual(backup_data.read(), b'datos de audio')
 
     def test_el_temporal_se_borra_al_salir(self):
-        with local_audio_path(archivo(SoloLecturaStorage(b'x'), 'a.wav')) as ruta:
+        with local_audio_path(audio_path_name(SoloLecturaStorage(b'x'), 'a.wav')) as file_path:
             pass
-        self.assertFalse(os.path.exists(ruta))
+        self.assertFalse(os.path.exists(file_path))
 
     def test_el_temporal_se_borra_aunque_falle_quien_lo_usa(self):
         with self.assertRaises(RuntimeError):
-            with local_audio_path(archivo(SoloLecturaStorage(b'x'), 'a.wav')) as ruta:
+            with local_audio_path(audio_path_name(SoloLecturaStorage(b'x'), 'a.wav')) as file_path:
                 raise RuntimeError('fallo del analisis')
-        self.assertFalse(os.path.exists(ruta))
+        self.assertFalse(os.path.exists(file_path))

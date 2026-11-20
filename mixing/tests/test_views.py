@@ -26,26 +26,26 @@ class ViewTestCase(TestCase):
 
 class NextTracksViewTests(ViewTestCase):
     def setUp(self):
-        self.actual = crear_track('actual', bpm=128, camelot='8B')
+        self.current_value = crear_track('actual', bpm=128, camelot='8B')
         self.perfecta = crear_track('perfecta', bpm=128, camelot='8B')
         self.buena = crear_track('buena', bpm=126, camelot='9B')
         self.mala = crear_track('mala', bpm=170, camelot='2A')
 
     def test_devuelve_las_candidatas_ordenadas_por_compatibilidad(self):
-        response = self.post(NEXT, {'trackId': self.actual.id})
+        response = self.post(NEXT, {'trackId': self.current_value.id})
 
         self.assertEqual(response.status_code, 200)
         ids = [c['track']['id'] for c in response.json()['candidates']]
         self.assertEqual(ids, [self.perfecta.id, self.buena.id, self.mala.id])
 
     def test_no_incluye_la_pista_actual_y_la_devuelve_aparte(self):
-        cuerpo = self.post(NEXT, {'trackId': self.actual.id}).json()
+        cuerpo = self.post(NEXT, {'trackId': self.current_value.id}).json()
 
-        self.assertEqual(cuerpo['current']['id'], self.actual.id)
-        self.assertNotIn(self.actual.id, [c['track']['id'] for c in cuerpo['candidates']])
+        self.assertEqual(cuerpo['current']['id'], self.current_value.id)
+        self.assertNotIn(self.current_value.id, [c['track']['id'] for c in cuerpo['candidates']])
 
     def test_cada_candidata_trae_el_detalle_de_la_compatibilidad(self):
-        primera = self.post(NEXT, {'trackId': self.actual.id}).json()['candidates'][0]
+        primera = self.post(NEXT, {'trackId': self.current_value.id}).json()['candidates'][0]
 
         self.assertEqual(primera['compatibility']['score'], 1.0)
         self.assertEqual(primera['compatibility']['harmonic'], 1.0)
@@ -53,7 +53,7 @@ class NextTracksViewTests(ViewTestCase):
         self.assertEqual(primera['track']['cuePoints'], [0.0, 60.0, 270.0])
 
     def test_respeta_el_limite(self):
-        cuerpo = self.post(NEXT, {'trackId': self.actual.id, 'limit': 2}).json()
+        cuerpo = self.post(NEXT, {'trackId': self.current_value.id, 'limit': 2}).json()
 
         self.assertEqual(len(cuerpo['candidates']), 2)
 
@@ -61,14 +61,14 @@ class NextTracksViewTests(ViewTestCase):
         for i in range(10):
             crear_track(f'extra {i}')
 
-        cuerpo = self.post(NEXT, {'trackId': self.actual.id}).json()
+        cuerpo = self.post(NEXT, {'trackId': self.current_value.id}).json()
 
         self.assertEqual(len(cuerpo['candidates']), 5)
 
     def test_sin_otras_pistas_la_lista_esta_vacia(self):
-        Track.objects.exclude(pk=self.actual.id).delete()
+        Track.objects.exclude(pk=self.current_value.id).delete()
 
-        cuerpo = self.post(NEXT, {'trackId': self.actual.id}).json()
+        cuerpo = self.post(NEXT, {'trackId': self.current_value.id}).json()
 
         self.assertEqual(cuerpo['candidates'], [])
 
@@ -80,9 +80,9 @@ class NextTracksViewTests(ViewTestCase):
             {},                                  # falta trackId
             {'trackId': 'uno'},                  # no es entero
             {'trackId': True},                   # bool disfrazado de entero
-            {'trackId': self.actual.id, 'limit': 0},
-            {'trackId': self.actual.id, 'limit': 21},
-            {'trackId': self.actual.id, 'limit': 'cinco'},
+            {'trackId': self.current_value.id, 'limit': 0},
+            {'trackId': self.current_value.id, 'limit': 21},
+            {'trackId': self.current_value.id, 'limit': 'cinco'},
         ]
         for payload in casos:
             with self.subTest(payload=payload):
@@ -170,7 +170,7 @@ WEIGHTS = '/api/mix/weights'
 
 class WeightsInRecommendationsTests(ViewTestCase):
     def setUp(self):
-        self.actual = crear_track('actual', bpm=128, camelot='8B')
+        self.current_value = crear_track('actual', bpm=128, camelot='8B')
         self.buen_tempo = crear_track('buen tempo', bpm=128, camelot='3A')        # armonia nula
         self.buena_armonia = crear_track('buena armonia', bpm=122, camelot='8B')  # tempo regular
 
@@ -179,28 +179,28 @@ class WeightsInRecommendationsTests(ViewTestCase):
 
     def test_sin_valoraciones_usa_los_pesos_por_defecto(self):
         # Con los pesos por defecto (45/40/15) la pista de buena armonia (tempo algo ajustado) supera a la de buen tempo.
-        ids = self.ids({'trackId': self.actual.id})
+        ids = self.ids({'trackId': self.current_value.id})
 
         self.assertEqual(ids[0], self.buena_armonia.id)
 
     def test_con_pesos_aprendidos_que_priorizan_el_tempo_cambia_el_orden(self):
         LearnedWeights.objects.create(tempo=0.9, harmonic=0.05, energy=0.05, samples=50)
 
-        ids = self.ids({'trackId': self.actual.id})
+        ids = self.ids({'trackId': self.current_value.id})
 
         self.assertEqual(ids[0], self.buen_tempo.id)
 
     def test_con_pesos_aprendidos_que_priorizan_la_armonia_gana_la_armonica(self):
         LearnedWeights.objects.create(tempo=0.05, harmonic=0.9, energy=0.05, samples=50)
 
-        ids = self.ids({'trackId': self.actual.id})
+        ids = self.ids({'trackId': self.current_value.id})
 
         self.assertEqual(ids[0], self.buena_armonia.id)
 
     def test_el_plan_de_transicion_usa_los_pesos_aprendidos_en_su_puntuacion(self):
         LearnedWeights.objects.create(tempo=0.0, harmonic=1.0, energy=0.0, samples=50)
 
-        plan = self.post(TRANSITION, {'fromTrackId': self.actual.id, 'toTrackId': self.buen_tempo.id}).json()
+        plan = self.post(TRANSITION, {'fromTrackId': self.current_value.id, 'toTrackId': self.buen_tempo.id}).json()
 
         self.assertEqual(plan['compatibility']['score'], 0.0)  # armonia nula y solo importa la armonia
 
@@ -352,17 +352,17 @@ class LearningLoopTests(ViewTestCase):
     """El bucle completo: el DJ valora transiciones y las recomendaciones se adaptan a su gusto."""
 
     def setUp(self):
-        self.actual = crear_track('actual', bpm=128, camelot='8B')
+        self.current_value = crear_track('actual', bpm=128, camelot='8B')
         # Con los pesos por defecto gana la de tempo perfecto y armonia vecina...
         self.tempo_perfecto = crear_track('tempo perfecto', bpm=128, camelot='9B')
         # ...pero a este DJ le gustan las que mantienen la tonalidad aunque haya que ajustar el tempo.
         self.misma_tonalidad = crear_track('misma tonalidad', bpm=122, camelot='8B')
 
     def primera_recomendada(self):
-        return self.post(NEXT, {'trackId': self.actual.id}).json()['candidates'][0]['track']['id']
+        return self.post(NEXT, {'trackId': self.current_value.id}).json()['candidates'][0]['track']['id']
 
-    def valorar(self, destino, liked):
-        return self.post(FEEDBACK, {'fromTrackId': self.actual.id, 'toTrackId': destino.id, 'liked': liked})
+    def valorar(self, target_path, liked):
+        return self.post(FEEDBACK, {'fromTrackId': self.current_value.id, 'toTrackId': target_path.id, 'liked': liked})
 
     def test_antes_de_valorar_gana_la_de_tempo_perfecto(self):
         self.assertEqual(self.primera_recomendada(), self.tempo_perfecto.id)
@@ -398,12 +398,12 @@ class MixTimingViewTests(ViewTestCase):
         self.a = crear_track('a', bpm=128)
         self.b = crear_track('b', bpm=174)
 
-    def datos(self, **cambios):
+    def payload_data(self, **cambios):
         return {'fromTrackId': self.a.id, 'toTrackId': self.b.id, 'plannedMixOutAt': 290.0, 'actualMixOutAt': 250.0,
                 **cambios}
 
     def test_guarda_el_momento_en_que_el_dj_pidio_mezclar(self):
-        response = self.post(TIMING, self.datos())
+        response = self.post(TIMING, self.payload_data())
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(MixTimingFeedback.objects.count(), 1)
@@ -411,14 +411,14 @@ class MixTimingViewTests(ViewTestCase):
 
     def test_con_varios_casos_el_motor_aprende_a_mezclar_antes(self):
         for _ in range(3):
-            response = self.post(TIMING, self.datos())
+            response = self.post(TIMING, self.payload_data())
 
         self.assertEqual(response.json(), {'samples': 3, 'advanceSeconds': 40.0, 'learned': True})
 
     def test_la_transicion_aplica_lo_aprendido(self):
         antes = self.post(TRANSITION, {'fromTrackId': self.a.id, 'toTrackId': self.b.id}).json()
         for _ in range(3):
-            self.post(TIMING, self.datos())
+            self.post(TIMING, self.payload_data())
 
         despues = self.post(TRANSITION, {'fromTrackId': self.a.id, 'toTrackId': self.b.id}).json()
 
@@ -428,11 +428,11 @@ class MixTimingViewTests(ViewTestCase):
 
     def test_rechaza_peticiones_invalidas(self):
         casos = [
-            self.datos(plannedMixOutAt='mucho'),
-            self.datos(actualMixOutAt=-1),
-            self.datos(actualMixOutAt=None),
-            self.datos(plannedMixOutAt=True),
-            self.datos(toTrackId=self.a.id),
+            self.payload_data(plannedMixOutAt='mucho'),
+            self.payload_data(actualMixOutAt=-1),
+            self.payload_data(actualMixOutAt=None),
+            self.payload_data(plannedMixOutAt=True),
+            self.payload_data(toTrackId=self.a.id),
         ]
         for caso in casos:
             with self.subTest(caso=caso):
@@ -440,7 +440,7 @@ class MixTimingViewTests(ViewTestCase):
         self.assertEqual(MixTimingFeedback.objects.count(), 0)
 
     def test_pista_inexistente_devuelve_404(self):
-        self.assertEqual(self.post(TIMING, self.datos(toTrackId=9999)).status_code, 404)
+        self.assertEqual(self.post(TIMING, self.payload_data(toTrackId=9999)).status_code, 404)
 
     def test_solo_acepta_post(self):
         self.assertEqual(self.client.get(TIMING).status_code, 405)

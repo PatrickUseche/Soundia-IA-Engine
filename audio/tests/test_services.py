@@ -63,13 +63,13 @@ class LoadAudioTests(SimpleTestCase):
         wav = wav_estereo(np.interp(np.arange(0, 25, 1 / 44100), np.arange(len(y)) / SR, y), 44100)
 
         cargada, sr = load_audio(io.BytesIO(wav))
-        referencia, _ = librosa.load(io.BytesIO(wav), sr=TARGET_SAMPLE_RATE, mono=True)
+        reference_entry, _ = librosa.load(io.BytesIO(wav), sr=TARGET_SAMPLE_RATE, mono=True)
 
         self.assertEqual(sr, TARGET_SAMPLE_RATE)
         self.assertEqual(cargada.dtype, np.float32)
-        self.assertAlmostEqual(len(cargada) / sr, len(referencia) / sr, delta=0.05)
-        n = min(len(cargada), len(referencia))
-        self.assertLess(np.max(np.abs(cargada[:n] - referencia[:n])), 0.01)
+        self.assertAlmostEqual(len(cargada) / sr, len(reference_entry) / sr, delta=0.05)
+        n = min(len(cargada), len(reference_entry))
+        self.assertLess(np.max(np.abs(cargada[:n] - reference_entry[:n])), 0.01)
 
     def test_solo_lee_los_primeros_minutos_de_una_pista_larga(self):
         with mock.patch('audio.services.MAX_ANALYSIS_SECONDS', 4):
@@ -88,50 +88,50 @@ class LoadAudioTests(SimpleTestCase):
 
 class AnalyzeSignalTests(SimpleTestCase):
     def test_analiza_tempo_tonalidad_energia_y_cues(self):
-        analisis = analyze_signal(cancion_de_prueba(bpm=120), SR)
+        analysis_result = analyze_signal(cancion_de_prueba(bpm=120), SR)
 
-        self.assertAlmostEqual(analisis.bpm, 120, delta=2)
-        self.assertEqual(analisis.key, 'C major')
-        self.assertEqual(analisis.camelot, '8B')
-        self.assertGreater(analisis.energy, 0)
-        self.assertLessEqual(analisis.energy, 1)
-        self.assertAlmostEqual(analisis.duration, 40, delta=0.1)
-        self.assertGreaterEqual(len(analisis.cue_points), 1)
-        self.assertAlmostEqual(analisis.cue_points[0], 0, delta=0.2)
+        self.assertAlmostEqual(analysis_result.bpm, 120, delta=2)
+        self.assertEqual(analysis_result.key, 'C major')
+        self.assertEqual(analysis_result.camelot, '8B')
+        self.assertGreater(analysis_result.energy, 0)
+        self.assertLessEqual(analysis_result.energy, 1)
+        self.assertAlmostEqual(analysis_result.duration, 40, delta=0.1)
+        self.assertGreaterEqual(len(analysis_result.cue_points), 1)
+        self.assertAlmostEqual(analysis_result.cue_points[0], 0, delta=0.2)
 
     def test_devuelve_la_rejilla_de_pulsos_con_el_tempo_afinado(self):
-        analisis = analyze_signal(click_track(110.0, 40, first_beat=0.2), SR)
+        analysis_result = analyze_signal(click_track(110.0, 40, first_beat=0.2), SR)
 
-        self.assertAlmostEqual(analisis.bpm, 110.0, delta=0.02)
-        self.assertIsNotNone(analisis.grid_offset)
-        self.assertLess(abs(circular_error(analisis.grid_offset, 0.2, 60 / 110)), 0.005)
+        self.assertAlmostEqual(analysis_result.bpm, 110.0, delta=0.02)
+        self.assertIsNotNone(analysis_result.grid_offset)
+        self.assertLess(abs(circular_error(analysis_result.grid_offset, 0.2, 60 / 110)), 0.005)
 
     def test_con_un_primer_tiempo_claro_los_cues_se_anclan_a_el(self):
         # Bombos a 100 BPM (compas de 2.4 s) con el tiempo fuerte en el tercer pulso: el primer tiempo es 1.5 s.
-        analisis = analyze_signal(kick_pattern(100, 40, 0.3, strong_beat=2), SR)
+        analysis_result = analyze_signal(kick_pattern(100, 40, 0.3, strong_beat=2), SR)
 
-        self.assertAlmostEqual(analisis.grid_downbeat, 1.5, delta=0.01)
-        self.assertGreater(analisis.grid_confidence, 0.3)
-        self.assertAlmostEqual(analisis.cue_points[0], 1.5, delta=0.01)
+        self.assertAlmostEqual(analysis_result.grid_downbeat, 1.5, delta=0.01)
+        self.assertGreater(analysis_result.grid_confidence, 0.3)
+        self.assertAlmostEqual(analysis_result.cue_points[0], 1.5, delta=0.01)
 
     def test_si_no_se_sabe_cual_es_el_primer_tiempo_los_cues_siguen_el_primer_pulso(self):
-        analisis = analyze_signal(click_track(100, 40, first_beat=0.3), SR)
+        analysis_result = analyze_signal(click_track(100, 40, first_beat=0.3), SR)
 
-        self.assertLess(analisis.grid_confidence, 0.2)
-        self.assertAlmostEqual(analisis.cue_points[0], 0.3, delta=0.01)
+        self.assertLess(analysis_result.grid_confidence, 0.2)
+        self.assertAlmostEqual(analysis_result.cue_points[0], 0.3, delta=0.01)
 
     def test_sin_ritmo_no_hay_rejilla_y_se_usa_el_tempo_de_antes(self):
-        analisis = analyze_signal(sine(440, 20), SR)
+        analysis_result = analyze_signal(sine(440, 20), SR)
 
-        self.assertIsNone(analisis.grid_offset)
-        self.assertIsNone(analisis.grid_downbeat)
-        self.assertIsNone(analisis.grid_confidence)
-        self.assertGreaterEqual(analisis.bpm, 70)
+        self.assertIsNone(analysis_result.grid_offset)
+        self.assertIsNone(analysis_result.grid_downbeat)
+        self.assertIsNone(analysis_result.grid_confidence)
+        self.assertGreaterEqual(analysis_result.bpm, 70)
 
     def test_los_cues_vienen_ordenados(self):
-        analisis = analyze_signal(cancion_de_prueba(bpm=128, seconds=60), SR)
+        analysis_result = analyze_signal(cancion_de_prueba(bpm=128, seconds=60), SR)
 
-        self.assertEqual(analisis.cue_points, sorted(analisis.cue_points))
+        self.assertEqual(analysis_result.cue_points, sorted(analysis_result.cue_points))
 
     def test_un_audio_silencioso_lanza_error(self):
         with self.assertRaises(SilentAudioError):
@@ -144,9 +144,9 @@ class AnalyzeSignalTests(SimpleTestCase):
 
 class AnalyzeFileTests(SimpleTestCase):
     def test_analiza_un_wav_en_memoria_de_punta_a_punta(self):
-        archivo = io.BytesIO(to_wav_bytes(cancion_de_prueba(bpm=124)))
+        audio_path_name = io.BytesIO(to_wav_bytes(cancion_de_prueba(bpm=124)))
 
-        analisis = analyze_file(archivo)
+        analysis_result = analyze_file(audio_path_name)
 
-        self.assertAlmostEqual(analisis.bpm, 124, delta=2)
-        self.assertEqual(analisis.camelot, '8B')
+        self.assertAlmostEqual(analysis_result.bpm, 124, delta=2)
+        self.assertEqual(analysis_result.camelot, '8B')

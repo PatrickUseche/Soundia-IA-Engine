@@ -60,131 +60,131 @@ class CircularErrorTests(SimpleTestCase):
 
 class LoadManifestTests(SimpleTestCase):
     def escribir(self, texto):
-        carpeta = TemporaryDirectory()
-        self.addCleanup(carpeta.cleanup)
-        ruta = Path(carpeta.name) / 'referencia.csv'
-        ruta.write_text(texto, encoding='utf-8')
-        return ruta
+        folder = TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        file_path = Path(folder.name) / 'referencia.csv'
+        file_path.write_text(texto, encoding='utf-8')
+        return file_path
 
     def test_lee_ruta_bpm_genero_y_primer_tiempo(self):
-        ruta = self.escribir('file,bpm,genre,downbeat\ncanciones/a.mp3,98.5,salsa,0.42\n')
+        file_path = self.escribir('file,bpm,genre,downbeat\ncanciones/a.mp3,98.5,salsa,0.42\n')
 
-        (ref,) = load_manifest(ruta)
+        (ref,) = load_manifest(file_path)
 
-        self.assertEqual(ref.path, ruta.parent / 'canciones' / 'a.mp3')
+        self.assertEqual(ref.path, file_path.parent / 'canciones' / 'a.mp3')
         self.assertEqual((ref.bpm, ref.genre, ref.downbeat), (98.5, 'salsa', 0.42))
 
     def test_el_primer_tiempo_y_el_genero_son_opcionales(self):
-        ruta = self.escribir('file,bpm\na.mp3,120\n')
+        file_path = self.escribir('file,bpm\na.mp3,120\n')
 
-        (ref,) = load_manifest(ruta)
+        (ref,) = load_manifest(file_path)
 
         self.assertEqual((ref.bpm, ref.genre, ref.downbeat), (120.0, '', None))
 
     def test_una_fila_sin_bpm_queda_sin_referencia(self):
-        ruta = self.escribir('file,bpm,genre\na.mp3,,salsa\n')
+        file_path = self.escribir('file,bpm,genre\na.mp3,,salsa\n')
 
-        (ref,) = load_manifest(ruta)
+        (ref,) = load_manifest(file_path)
 
         self.assertIsNone(ref.bpm)
 
     def test_ignora_lineas_vacias_y_espacios_sobrantes(self):
-        ruta = self.escribir('file,bpm,genre\n\n a.mp3 , 100 , bachata \n\n')
+        file_path = self.escribir('file,bpm,genre\n\n a.mp3 , 100 , bachata \n\n')
 
-        (ref,) = load_manifest(ruta)
+        (ref,) = load_manifest(file_path)
 
         self.assertEqual((ref.path.name, ref.bpm, ref.genre), ('a.mp3', 100.0, 'bachata'))
 
     def test_un_bpm_que_no_es_numero_es_un_error_con_el_numero_de_linea(self):
-        ruta = self.escribir('file,bpm\na.mp3,rapido\n')
+        file_path = self.escribir('file,bpm\na.mp3,rapido\n')
 
         with self.assertRaisesRegex(ValueError, 'línea 2'):
-            load_manifest(ruta)
+            load_manifest(file_path)
 
     def test_un_bpm_no_positivo_es_un_error(self):
-        ruta = self.escribir('file,bpm\na.mp3,-90\n')
+        file_path = self.escribir('file,bpm\na.mp3,-90\n')
 
         with self.assertRaisesRegex(ValueError, 'línea 2'):
-            load_manifest(ruta)
+            load_manifest(file_path)
 
     def test_sin_columna_file_es_un_error(self):
-        ruta = self.escribir('cancion,bpm\na.mp3,100\n')
+        file_path = self.escribir('cancion,bpm\na.mp3,100\n')
 
         with self.assertRaisesRegex(ValueError, 'file'):
-            load_manifest(ruta)
+            load_manifest(file_path)
 
     def test_un_manifiesto_vacio_da_lista_vacia(self):
         self.assertEqual(load_manifest(self.escribir('file,bpm\n')), [])
 
 
-def resultado(bpm_ref, bpm_det, genero='salsa', downbeat_ref=None, downbeat_det=None, error=None):
-    ref = Reference(path=Path('x.mp3'), bpm=bpm_ref, genre=genero, downbeat=downbeat_ref)
+def outcome(bpm_ref, bpm_det, genre_name='salsa', downbeat_ref=None, downbeat_det=None, error=None):
+    ref = Reference(path=Path('x.mp3'), bpm=bpm_ref, genre=genre_name, downbeat=downbeat_ref)
     return Result(reference=ref, detected_bpm=bpm_det, detected_downbeat=downbeat_det, error=error)
 
 
 class SummarizeTests(SimpleTestCase):
     def test_cuenta_aciertos_estrictos_y_con_octavas_por_genero(self):
-        resumen = summarize([
-            resultado(100, 101, 'salsa'),   # acierto
-            resultado(100, 200, 'salsa'),   # solo con octavas
-            resultado(100, 137, 'salsa'),   # fallo
-            resultado(90, 90, 'bachata'),   # acierto
+        summary_info = summarize([
+            outcome(100, 101, 'salsa'),   # acierto
+            outcome(100, 200, 'salsa'),   # solo con octavas
+            outcome(100, 137, 'salsa'),   # fallo
+            outcome(90, 90, 'bachata'),   # acierto
         ])
 
-        salsa = resumen['salsa']
+        salsa = summary_info['salsa']
         self.assertEqual((salsa.total, salsa.exact, salsa.octave), (3, 1, 2))
         self.assertAlmostEqual(salsa.exact_rate, 1 / 3)
         self.assertAlmostEqual(salsa.octave_rate, 2 / 3)
-        self.assertEqual((resumen['bachata'].total, resumen['bachata'].exact), (1, 1))
+        self.assertEqual((summary_info['bachata'].total, summary_info['bachata'].exact), (1, 1))
 
     def test_incluye_un_total_de_todas_las_pistas(self):
-        resumen = summarize([resultado(100, 100, 'salsa'), resultado(90, 130, 'bachata')])
+        summary_info = summarize([outcome(100, 100, 'salsa'), outcome(90, 130, 'bachata')])
 
-        self.assertEqual((resumen['todas'].total, resumen['todas'].exact), (2, 1))
+        self.assertEqual((summary_info['todas'].total, summary_info['todas'].exact), (2, 1))
 
     def test_el_genero_vacio_se_agrupa_como_sin_genero(self):
-        resumen = summarize([resultado(100, 100, '')])
+        summary_info = summarize([outcome(100, 100, '')])
 
-        self.assertIn('sin género', resumen)
+        self.assertIn('sin género', summary_info)
 
     def test_una_pista_con_error_cuenta_como_fallo_y_se_lleva_su_propia_cuenta(self):
-        resumen = summarize([resultado(100, None, error='ilegible'), resultado(100, 100)])
+        summary_info = summarize([outcome(100, None, error='ilegible'), outcome(100, 100)])
 
-        todas = resumen['todas']
-        self.assertEqual((todas.total, todas.exact, todas.errors), (2, 1, 1))
+        overall = summary_info['todas']
+        self.assertEqual((overall.total, overall.exact, overall.errors), (2, 1, 1))
 
     def test_las_pistas_sin_bpm_de_referencia_no_se_cuentan(self):
-        resumen = summarize([resultado(None, 100), resultado(100, 100)])
+        summary_info = summarize([outcome(None, 100), outcome(100, 100)])
 
-        self.assertEqual(resumen['todas'].total, 1)
+        self.assertEqual(summary_info['todas'].total, 1)
 
     def test_la_mediana_del_error_de_tempo_ignora_los_atipicos(self):
-        resumen = summarize([resultado(100, 101), resultado(100, 102), resultado(100, 150)])
+        summary_info = summarize([outcome(100, 101), outcome(100, 102), outcome(100, 150)])
 
-        self.assertAlmostEqual(resumen['todas'].median_error_pct, 2.0)
+        self.assertAlmostEqual(summary_info['todas'].median_error_pct, 2.0)
 
     def test_primer_tiempo_dentro_de_la_tolerancia_en_el_compas_y_en_el_pulso(self):
         # 120 BPM: pulso de 0.5 s y compas de 2 s.
-        resumen = summarize([
-            resultado(120, 120, downbeat_ref=0.10, downbeat_det=0.14),   # compas bien (40 ms)
-            resultado(120, 120, downbeat_ref=0.10, downbeat_det=0.64),   # pulso bien, compas mal (un pulso despues)
-            resultado(120, 120, downbeat_ref=0.10, downbeat_det=0.35),   # ni pulso ni compas
-            resultado(120, 120),                                         # sin primer tiempo de referencia
+        summary_info = summarize([
+            outcome(120, 120, downbeat_ref=0.10, downbeat_det=0.14),   # compas bien (40 ms)
+            outcome(120, 120, downbeat_ref=0.10, downbeat_det=0.64),   # pulso bien, compas mal (un pulso despues)
+            outcome(120, 120, downbeat_ref=0.10, downbeat_det=0.35),   # ni pulso ni compas
+            outcome(120, 120),                                         # sin primer tiempo de referencia
         ])
 
-        todas = resumen['todas']
-        self.assertEqual(todas.downbeat_total, 3)
-        self.assertEqual(todas.downbeat_ok, 1)
-        self.assertEqual(todas.beat_phase_ok, 2)
+        overall = summary_info['todas']
+        self.assertEqual(overall.downbeat_total, 3)
+        self.assertEqual(overall.downbeat_ok, 1)
+        self.assertEqual(overall.beat_phase_ok, 2)
 
     def test_la_tolerancia_del_primer_tiempo_se_puede_cambiar(self):
-        resumen = summarize([resultado(120, 120, downbeat_ref=0.10, downbeat_det=0.20)], downbeat_tolerance=0.15)
+        summary_info = summarize([outcome(120, 120, downbeat_ref=0.10, downbeat_det=0.20)], downbeat_tolerance=0.15)
 
-        self.assertEqual(resumen['todas'].downbeat_ok, 1)
+        self.assertEqual(summary_info['todas'].downbeat_ok, 1)
 
     def test_una_lista_vacia_da_un_total_en_cero_sin_dividir_entre_cero(self):
-        resumen = summarize([])
+        summary_info = summarize([])
 
-        self.assertEqual(resumen['todas'].total, 0)
-        self.assertEqual(resumen['todas'].exact_rate, 0.0)
-        self.assertIsNone(resumen['todas'].median_error_pct)
+        self.assertEqual(summary_info['todas'].total, 0)
+        self.assertEqual(summary_info['todas'].exact_rate, 0.0)
+        self.assertIsNone(summary_info['todas'].median_error_pct)

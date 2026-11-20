@@ -26,10 +26,10 @@ def guardar(overlap=32.0, quality='good', genre_a='salsa', genre_b='', mix_out_a
 
 class SummarizeTests(TestCase):
     def test_sin_grabaciones_no_hay_grupos(self):
-        resumen = summarize()
+        summary_info = summarize()
 
-        self.assertEqual(resumen['total'], 0)
-        self.assertEqual(resumen['groups'], [])
+        self.assertEqual(summary_info['total'], 0)
+        self.assertEqual(summary_info['groups'], [])
 
     def test_por_defecto_solo_cuenta_las_buenas(self):
         guardar(quality='good')
@@ -80,9 +80,9 @@ class SummarizeTests(TestCase):
         guardar(overlap=16.0, crossfader=gradual)
         guardar(overlap=16.0, crossfader=corte)
 
-        formas = summarize()['groups'][0]['crossfaderShapes']
+        curve_shapes = summarize()['groups'][0]['crossfaderShapes']
 
-        self.assertEqual(formas, {'gradual': 2, 'corte': 1})
+        self.assertEqual(curve_shapes, {'gradual': 2, 'corte': 1})
 
     def test_cuenta_en_cuantas_mezclas_hubo_cambio_de_graves(self):
         con_cambio = [[0, 1.0], [8, 1.0], [8.5, 0.0], [16, 0.0]]
@@ -117,10 +117,10 @@ class SummarizeTests(TestCase):
         guardar(genre_a='salsa')
         guardar(genre_a='merengue')
 
-        resumen = summarize(genre='merengue')
+        summary_info = summarize(genre='merengue')
 
-        self.assertEqual([g['genre'] for g in resumen['groups']], ['merengue'])
-        self.assertEqual(resumen['total'], 1)
+        self.assertEqual([g['genre'] for g in summary_info['groups']], ['merengue'])
+        self.assertEqual(summary_info['total'], 1)
 
 
 class RecordingsSummaryViewTests(TestCase):
@@ -140,11 +140,11 @@ class RecordingsSummaryViewTests(TestCase):
         guardar(genre_a='salsa', quality='discard')
         guardar(genre_a='bachata', quality='unreviewed')
 
-        todas = self.client.get(self.URL, {'quality': 'all'}).json()
+        overall = self.client.get(self.URL, {'quality': 'all'}).json()
         solo = self.client.get(self.URL, {'quality': 'all', 'genre': 'bachata'}).json()
 
-        self.assertEqual(todas['total'], 2)
-        self.assertIsNone(todas['quality'])
+        self.assertEqual(overall['total'], 2)
+        self.assertIsNone(overall['quality'])
         self.assertEqual([g['genre'] for g in solo['groups']], ['bachata'])
 
     def test_una_calidad_invalida_devuelve_400(self):
@@ -163,9 +163,9 @@ class RecordingsSummaryViewTests(TestCase):
 
 
 class RecordingsReportCommandTests(TestCase):
-    def ejecutar(self, **opciones):
+    def ejecutar(self, **command_options):
         salida = StringIO()
-        call_command('recordings_report', stdout=salida, **opciones)
+        call_command('recordings_report', stdout=salida, **command_options)
         return salida.getvalue()
 
     def test_sin_grabaciones_explica_que_hacer(self):

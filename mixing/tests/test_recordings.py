@@ -46,8 +46,8 @@ class BeatPhaseErrorTests(SimpleTestCase):
 
     def test_nunca_pasa_de_medio_pulso(self):
         for centesimas in range(0, 200, 3):
-            valor = self.error(10.0, 20.0 + centesimas / 100)
-            self.assertLessEqual(abs(valor), 250.0 + 1e-6)
+            raw_value = self.error(10.0, 20.0 + centesimas / 100)
+            self.assertLessEqual(abs(raw_value), 250.0 + 1e-6)
 
     def test_tiene_en_cuenta_el_offset_de_cada_rejilla(self):
         b = snap(offset=0.1, downbeat=0.1)
@@ -55,8 +55,8 @@ class BeatPhaseErrorTests(SimpleTestCase):
 
     def test_tiene_en_cuenta_el_pitch(self):
         # B va un 5 % mas rapida: 0.105 s de pista son 0.1 s de reloj.
-        valor = self.error(10.0, 20.105, pitch_b=1.05)
-        self.assertAlmostEqual(valor, -100.0, places=1)
+        raw_value = self.error(10.0, 20.105, pitch_b=1.05)
+        self.assertAlmostEqual(raw_value, -100.0, places=1)
 
     def test_sin_rejilla_en_alguna_no_hay_valor(self):
         self.assertIsNone(self.error(10.0, 20.0, a=snap(grid=False)))
@@ -110,15 +110,15 @@ class CrossfaderShapeTests(SimpleTestCase):
 
 class DeriveFeaturesTests(SimpleTestCase):
     def grabacion(self, **cambios):
-        datos = {
+        payload_data = {
             'snapshot_a': snap(bpm=120.0, camelot='8B', energy=0.5, duration=300.0, vocal_last_end=230.0),
             'snapshot_b': snap(bpm=120.0, camelot='9B', energy=0.8, duration=240.0, offset=0.1, downbeat=0.1,
                                vocal_first_start=20.0),
             'pitch_a': 1.0, 'pitch_b': 1.0, 'mix_out_at': 240.0, 'mix_in_at': 0.1, 'overlap_seconds': 32.0,
             'curves': {},
         }
-        datos.update(cambios)
-        return datos
+        payload_data.update(cambios)
+        return payload_data
 
     def test_calcula_los_rasgos_principales(self):
         rasgos = derive_features(self.grabacion())
@@ -173,12 +173,12 @@ class ParseRecordingTests(TestCase):
             title='B', duration=240.0, bpm=124.0, key='G major', camelot='9B', energy=0.7, cue_points=[0.0])
 
     def cuerpo(self, **cambios):
-        datos = {
+        payload_data = {
             'fromTrackId': self.a.id, 'toTrackId': self.b.id, 'mixOutAt': 240.0, 'mixInAt': 0.5,
             'overlapSeconds': 32.0, 'pitchA': 1.0, 'pitchB': 0.968,
         }
-        datos.update(cambios)
-        return datos
+        payload_data.update(cambios)
+        return payload_data
 
     def test_un_cuerpo_valido_devuelve_los_campos_con_la_foto_de_las_pistas(self):
         campos = parse_recording(self.cuerpo(dj='  Alias  ', genreA='salsa', genreB='bachata', notes='ok'))
@@ -322,17 +322,17 @@ class RecordingViewTests(TestCase):
             grid_offset=0.1, grid_downbeat=0.1, grid_confidence=0.9)
 
     def cuerpo(self, **cambios):
-        datos = {
+        payload_data = {
             'fromTrackId': self.a.id, 'toTrackId': self.b.id, 'mixOutAt': 240.0, 'mixInAt': 0.1,
             'overlapSeconds': 32.0, 'pitchA': 1.0, 'pitchB': 1.0,
             'curves': {'crossfader': lineal(12.0, 20.0), 'a': {'low': [[0, 1.0], [16, 1.0], [17, 0.0], [32, 0.0]]}},
         }
-        datos.update(cambios)
-        return datos
+        payload_data.update(cambios)
+        return payload_data
 
     def post(self, cuerpo=None, raw=None):
-        datos = raw if raw is not None else json.dumps(cuerpo if cuerpo is not None else self.cuerpo())
-        return self.client.post(RECORDINGS, data=datos, content_type='application/json')
+        payload_data = raw if raw is not None else json.dumps(cuerpo if cuerpo is not None else self.cuerpo())
+        return self.client.post(RECORDINGS, data=payload_data, content_type='application/json')
 
     def put(self, pk, cuerpo):
         return self.client.put(f'{RECORDINGS}/{pk}', data=json.dumps(cuerpo), content_type='application/json')

@@ -93,10 +93,10 @@ class TempoPriorTests(SimpleTestCase):
     def test_acepta_varios_tempos_a_la_vez(self):
         import numpy as np
 
-        resultado = tempo_prior().logpdf(np.array([60.0, 100.0, 220.0]))
+        outcome = tempo_prior().logpdf(np.array([60.0, 100.0, 220.0]))
 
-        self.assertEqual(resultado.shape, (3,))
-        self.assertEqual(float(resultado[1]), 0.0)
+        self.assertEqual(outcome.shape, (3,))
+        self.assertEqual(float(outcome[1]), 0.0)
 
     def test_detect_bpm_estima_el_tempo_con_esa_prior_y_sin_tempo_de_partida(self):
         y = click_track(90, seconds=20)

@@ -16,26 +16,26 @@ from mixing.learning import (
 def muestras(n, criterio, semilla=1, ruido=0.0):
     """Valoraciones sinteticas: puntuaciones al azar y el gusto lo decide `criterio(tempo, armonia, energia)`."""
     azar = random.Random(semilla)
-    resultado = []
+    outcome = []
     for _ in range(n):
         t, h, e = azar.random(), azar.random(), azar.random()
         le_gusto = criterio(t, h, e)
         if azar.random() < ruido:
             le_gusto = not le_gusto
-        resultado.append(FeedbackSample(t, h, e, le_gusto))
-    return resultado
+        outcome.append(FeedbackSample(t, h, e, le_gusto))
+    return outcome
 
 
 class HasEnoughSignalTests(SimpleTestCase):
     def test_con_pocas_valoraciones_no_hay_senal(self):
-        datos = muestras(MIN_SAMPLES - 1, lambda t, h, e: h > 0.5)
+        payload_data = muestras(MIN_SAMPLES - 1, lambda t, h, e: h > 0.5)
 
-        self.assertFalse(has_enough_signal(datos))
+        self.assertFalse(has_enough_signal(payload_data))
 
     def test_con_las_suficientes_de_las_dos_clases_si(self):
-        datos = muestras(MIN_SAMPLES * 3, lambda t, h, e: h > 0.5)
+        payload_data = muestras(MIN_SAMPLES * 3, lambda t, h, e: h > 0.5)
 
-        self.assertTrue(has_enough_signal(datos))
+        self.assertTrue(has_enough_signal(payload_data))
 
     def test_si_todas_son_iguales_no_hay_senal(self):
         todas_gustan = [FeedbackSample(0.5, 0.5, 0.5, True)] * (MIN_SAMPLES * 2)
@@ -69,14 +69,14 @@ class PredictLikeProbabilityTests(SimpleTestCase):
 
 class TrainWeightsTests(SimpleTestCase):
     def test_sin_datos_suficientes_devuelve_los_pesos_previos(self):
-        datos = muestras(MIN_SAMPLES - 1, lambda t, h, e: h > 0.5)
+        payload_data = muestras(MIN_SAMPLES - 1, lambda t, h, e: h > 0.5)
 
-        self.assertEqual(train_weights(datos), DEFAULT_WEIGHTS)
+        self.assertEqual(train_weights(payload_data), DEFAULT_WEIGHTS)
 
     def test_con_todas_las_valoraciones_iguales_devuelve_los_pesos_previos(self):
-        datos = [FeedbackSample(0.3, 0.7, 0.2, True)] * 50
+        payload_data = [FeedbackSample(0.3, 0.7, 0.2, True)] * 50
 
-        self.assertEqual(train_weights(datos), DEFAULT_WEIGHTS)
+        self.assertEqual(train_weights(payload_data), DEFAULT_WEIGHTS)
 
     def test_respeta_los_pesos_previos_que_se_le_pasen(self):
         previos = ScoringWeights(0.2, 0.2, 0.6)
@@ -84,44 +84,44 @@ class TrainWeightsTests(SimpleTestCase):
         self.assertEqual(train_weights([], prior=previos), previos)
 
     def test_aprende_que_la_armonia_es_lo_que_importa(self):
-        datos = muestras(300, lambda t, h, e: h > 0.6)
+        payload_data = muestras(300, lambda t, h, e: h > 0.6)
 
-        pesos = train_weights(datos)
+        pesos = train_weights(payload_data)
 
         self.assertGreater(pesos.harmonic, DEFAULT_WEIGHTS.harmonic)
         self.assertGreater(pesos.harmonic, pesos.tempo)
         self.assertGreater(pesos.harmonic, pesos.energy)
 
     def test_aprende_que_el_tempo_es_lo_que_importa(self):
-        datos = muestras(300, lambda t, h, e: t > 0.6)
+        payload_data = muestras(300, lambda t, h, e: t > 0.6)
 
-        pesos = train_weights(datos)
+        pesos = train_weights(payload_data)
 
         self.assertGreater(pesos.tempo, DEFAULT_WEIGHTS.tempo)
         self.assertGreater(pesos.tempo, pesos.harmonic)
         self.assertGreater(pesos.tempo, pesos.energy)
 
     def test_aprende_que_la_energia_es_lo_que_importa(self):
-        datos = muestras(300, lambda t, h, e: e > 0.6)
+        payload_data = muestras(300, lambda t, h, e: e > 0.6)
 
-        pesos = train_weights(datos)
+        pesos = train_weights(payload_data)
 
         self.assertGreater(pesos.energy, DEFAULT_WEIGHTS.energy)
         self.assertGreater(pesos.energy, pesos.tempo)
         self.assertGreater(pesos.energy, pesos.harmonic)
 
     def test_aprende_aunque_el_20_por_ciento_de_las_valoraciones_sean_ruido(self):
-        datos = muestras(400, lambda t, h, e: h > 0.6, ruido=0.2)
+        payload_data = muestras(400, lambda t, h, e: h > 0.6, ruido=0.2)
 
-        pesos = train_weights(datos)
+        pesos = train_weights(payload_data)
 
         self.assertGreater(pesos.harmonic, pesos.tempo)
         self.assertGreater(pesos.harmonic, pesos.energy)
 
     def test_combina_dos_criterios(self):
-        datos = muestras(400, lambda t, h, e: (t + h) / 2 > 0.6)
+        payload_data = muestras(400, lambda t, h, e: (t + h) / 2 > 0.6)
 
-        pesos = train_weights(datos)
+        pesos = train_weights(payload_data)
 
         self.assertGreater(pesos.tempo, pesos.energy)
         self.assertGreater(pesos.harmonic, pesos.energy)
@@ -135,9 +135,9 @@ class TrainWeightsTests(SimpleTestCase):
                 self.assertGreaterEqual(min(pesos.tempo, pesos.harmonic, pesos.energy), MIN_WEIGHT - 1e-9)
 
     def test_ningun_criterio_se_ignora_del_todo(self):
-        datos = muestras(300, lambda t, h, e: h > 0.6)
+        payload_data = muestras(300, lambda t, h, e: h > 0.6)
 
-        pesos = train_weights(datos)
+        pesos = train_weights(payload_data)
 
         self.assertGreaterEqual(pesos.tempo, MIN_WEIGHT - 1e-9)
         self.assertGreaterEqual(pesos.energy, MIN_WEIGHT - 1e-9)
@@ -151,9 +151,9 @@ class TrainWeightsTests(SimpleTestCase):
         self.assertLess(distancia(pocos), distancia(muchos))
 
     def test_es_determinista(self):
-        datos = muestras(100, lambda t, h, e: h > 0.5)
+        payload_data = muestras(100, lambda t, h, e: h > 0.5)
 
-        self.assertEqual(train_weights(datos), train_weights(datos))
+        self.assertEqual(train_weights(payload_data), train_weights(payload_data))
 
     def test_los_pesos_aprendidos_predicen_mejor_que_los_previos(self):
         criterio = lambda t, h, e: h > 0.6  # noqa: E731

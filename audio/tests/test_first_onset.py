@@ -42,8 +42,8 @@ class FirstOnsetTimeTests(SimpleTestCase):
                 [click_track(90, seconds=10, amplitude=0.02), click_track(90, seconds=10, amplitude=0.9)]),
         }
 
-        for nombre, y in senales.items():
-            with self.subTest(senal=nombre):
+        for file_name, y in senales.items():
+            with self.subTest(senal=file_name):
                 self.assertAlmostEqual(
                     _first_onset_time(y, SR), _primer_ataque_sobre_la_pista_entera(y, SR), delta=0.03)
 

@@ -49,14 +49,14 @@ class ComputeEnergyTests(SimpleTestCase):
 class FindCuePointsTests(SimpleTestCase):
     BPM = 120  # un compas de 4 tiempos dura 2 s
 
-    def pista(self, compases_suaves, compases_fuertes):
+    def track_obj(self, compases_suaves, compases_fuertes):
         suave = click_track(self.BPM, compases_suaves * 2, amplitude=0.1)
         fuerte = click_track(self.BPM, compases_fuertes * 2, amplitude=0.9)
         return np.concatenate([suave, fuerte])
 
     def test_los_cues_se_anclan_al_primer_tiempo_que_se_les_indica(self):
         # Compases de 2 s con el primer tiempo en el segundo 1.0, sin importar donde suene el primer golpe.
-        cues = find_cue_points(self.pista(8, 12), SR, self.BPM, first_beat=1.0)
+        cues = find_cue_points(self.track_obj(8, 12), SR, self.BPM, first_beat=1.0)
 
         self.assertEqual(cues[0], 1.0)
         for cue in cues:
@@ -68,7 +68,7 @@ class FindCuePointsTests(SimpleTestCase):
         self.assertAlmostEqual(cues[0], 0.0, delta=0.15)
 
     def test_marca_el_cambio_de_energia_en_el_compas_donde_ocurre(self):
-        y = self.pista(compases_suaves=12, compases_fuertes=12)
+        y = self.track_obj(compases_suaves=12, compases_fuertes=12)
 
         cues = find_cue_points(y, SR, self.BPM)
 
@@ -76,7 +76,7 @@ class FindCuePointsTests(SimpleTestCase):
         self.assertTrue(any(abs(c - 24.0) < 0.3 for c in cues), cues)
 
     def test_marca_tambien_una_caida_de_energia(self):
-        y = self.pista(compases_suaves=0, compases_fuertes=12)
+        y = self.track_obj(compases_suaves=0, compases_fuertes=12)
         y = np.concatenate([y, click_track(self.BPM, 24, amplitude=0.05)])
 
         cues = find_cue_points(y, SR, self.BPM)
@@ -107,7 +107,7 @@ class FindCuePointsTests(SimpleTestCase):
             self.assertGreaterEqual(siguiente - anterior, 8 * 2 - 0.5)  # >= 8 compases
 
     def test_los_cues_caen_dentro_de_la_pista(self):
-        y = self.pista(12, 12)
+        y = self.track_obj(12, 12)
 
         cues = find_cue_points(y, SR, self.BPM)
 

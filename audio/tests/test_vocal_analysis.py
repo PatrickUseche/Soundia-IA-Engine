@@ -16,8 +16,8 @@ class AnalyzeLastVocalsTests(SimpleTestCase):
     def setUp(self):
         # Una pista de 100 s; su ventana de analisis son los ultimos 60 s (desde el segundo 40).
         fd, self.path = tempfile.mkstemp(suffix='.wav')
-        with os.fdopen(fd, 'wb') as archivo:
-            archivo.write(to_wav_bytes(sine(220, 100.0, amplitude=0.3)))
+        with os.fdopen(fd, 'wb') as audio_path_name:
+            audio_path_name.write(to_wav_bytes(sine(220, 100.0, amplitude=0.3)))
         self.addCleanup(os.remove, self.path)
 
     def separador_con_voz_hasta(self, segundos):
@@ -34,10 +34,10 @@ class AnalyzeLastVocalsTests(SimpleTestCase):
     def test_devuelve_hasta_donde_llega_la_voz_en_segundos_de_la_pista(self):
         separador, _ = self.separador_con_voz_hasta(20)
 
-        resultado = analyze_last_vocals(self.path, duration=100.0, separator=separador)
+        outcome = analyze_last_vocals(self.path, duration=100.0, separator=separador)
 
-        self.assertEqual(resultado.window_start, 100.0 - VOCAL_WINDOW_SECONDS)
-        self.assertEqual(resultado.last_end, 60.0)  # 40 + 20
+        self.assertEqual(outcome.window_start, 100.0 - VOCAL_WINDOW_SECONDS)
+        self.assertEqual(outcome.last_end, 60.0)  # 40 + 20
 
     def test_solo_separa_la_ventana_final_en_estereo_a_la_frecuencia_del_modelo(self):
         separador, recibido = self.separador_con_voz_hasta(5)
@@ -49,25 +49,25 @@ class AnalyzeLastVocalsTests(SimpleTestCase):
         self.assertAlmostEqual(muestras / SEPARATION_SAMPLE_RATE, VOCAL_WINDOW_SECONDS, delta=0.1)
 
     def test_si_no_hay_voz_en_la_ventana_el_final_es_none(self):
-        resultado = analyze_last_vocals(self.path, duration=100.0, separator=lambda audio: np.zeros_like(audio))
+        outcome = analyze_last_vocals(self.path, duration=100.0, separator=lambda audio: np.zeros_like(audio))
 
-        self.assertIsNone(resultado.last_end)
+        self.assertIsNone(outcome.last_end)
 
     def test_una_pista_mas_corta_que_la_ventana_se_analiza_entera(self):
         separador, recibido = self.separador_con_voz_hasta(10)
 
-        resultado = analyze_last_vocals(self.path, duration=30.0, separator=separador)
+        outcome = analyze_last_vocals(self.path, duration=30.0, separator=separador)
 
-        self.assertEqual(resultado.window_start, 0.0)
-        self.assertEqual(resultado.last_end, 10.0)
+        self.assertEqual(outcome.window_start, 0.0)
+        self.assertEqual(outcome.last_end, 10.0)
         self.assertAlmostEqual(recibido['forma'][1] / SEPARATION_SAMPLE_RATE, 30.0, delta=0.1)
 
 
 class AnalyzeFirstVocalsTests(SimpleTestCase):
     def setUp(self):
         fd, self.path = tempfile.mkstemp(suffix='.wav')
-        with os.fdopen(fd, 'wb') as archivo:
-            archivo.write(to_wav_bytes(sine(220, 100.0, amplitude=0.3)))
+        with os.fdopen(fd, 'wb') as audio_path_name:
+            audio_path_name.write(to_wav_bytes(sine(220, 100.0, amplitude=0.3)))
         self.addCleanup(os.remove, self.path)
 
     def separador_con_voz_desde(self, segundos):
@@ -101,17 +101,17 @@ class AnalyzeFirstVocalsTests(SimpleTestCase):
     def test_una_pista_mas_corta_que_la_ventana_se_analiza_entera(self):
         separador, recibido = self.separador_con_voz_desde(4)
 
-        resultado = analyze_first_vocals(self.path, 30.0, separator=separador)
+        outcome = analyze_first_vocals(self.path, 30.0, separator=separador)
 
-        self.assertEqual(resultado, 4.0)
+        self.assertEqual(outcome, 4.0)
         self.assertAlmostEqual(recibido['forma'][1] / SEPARATION_SAMPLE_RATE, 30.0, delta=0.1)
 
 
 class AnalyzeVocalsTests(SimpleTestCase):
     def setUp(self):
         fd, self.path = tempfile.mkstemp(suffix='.wav')
-        with os.fdopen(fd, 'wb') as archivo:
-            archivo.write(to_wav_bytes(sine(220, 100.0, amplitude=0.3)))
+        with os.fdopen(fd, 'wb') as audio_path_name:
+            audio_path_name.write(to_wav_bytes(sine(220, 100.0, amplitude=0.3)))
         self.addCleanup(os.remove, self.path)
 
     @staticmethod
@@ -125,11 +125,11 @@ class AnalyzeVocalsTests(SimpleTestCase):
 
     def test_analiza_el_final_y_el_inicio(self):
         # La misma voz de 8 a 25 s en las dos ventanas: en la del final (desde el s 40) acaba en 40 + 25.
-        resultado = analyze_vocals(self.path, 100.0, with_start=True, separator=self.separador_con_voz_en(8, 25))
+        outcome = analyze_vocals(self.path, 100.0, with_start=True, separator=self.separador_con_voz_en(8, 25))
 
-        self.assertEqual(resultado.first_start, 8.0)
-        self.assertEqual(resultado.last_end, 65.0)
-        self.assertEqual(resultado.window_start, 40.0)
+        self.assertEqual(outcome.first_start, 8.0)
+        self.assertEqual(outcome.last_end, 65.0)
+        self.assertEqual(outcome.window_start, 40.0)
 
     def test_sin_analizar_el_inicio_solo_hay_final(self):
         llamadas = []
@@ -138,9 +138,9 @@ class AnalyzeVocalsTests(SimpleTestCase):
             llamadas.append(audio.shape)
             return np.zeros_like(audio)
 
-        resultado = analyze_vocals(self.path, 100.0, with_start=False, separator=separador)
+        outcome = analyze_vocals(self.path, 100.0, with_start=False, separator=separador)
 
-        self.assertIsNone(resultado.first_start)
+        self.assertIsNone(outcome.first_start)
         self.assertEqual(len(llamadas), 1)
 
     def test_las_dos_ventanas_se_separan_una_despues_de_otra(self):
@@ -161,17 +161,17 @@ class AnalyzeVocalsTests(SimpleTestCase):
     def test_el_inicio_se_enciende_con_una_variable_de_entorno(self):
         with mock.patch.dict(os.environ, {'VOCAL_ANALYSIS_START': 'on'}):
             self.assertTrue(start_analysis_enabled())
-            resultado = analyze_vocals(self.path, 100.0, separator=self.separador_con_voz_en(8, 25))
-        self.assertEqual(resultado.first_start, 8.0)
+            outcome = analyze_vocals(self.path, 100.0, separator=self.separador_con_voz_en(8, 25))
+        self.assertEqual(outcome.first_start, 8.0)
 
     def test_por_defecto_el_inicio_no_se_analiza(self):
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop('VOCAL_ANALYSIS_START', None)
             self.assertFalse(start_analysis_enabled())
-            resultado = analyze_vocals(self.path, 100.0, separator=self.separador_con_voz_en(8, 25))
-        self.assertIsNone(resultado.first_start)
+            outcome = analyze_vocals(self.path, 100.0, separator=self.separador_con_voz_en(8, 25))
+        self.assertIsNone(outcome.first_start)
 
     def test_off_o_cualquier_otro_valor_lo_deja_apagado(self):
-        for valor in ('off', 'OFF', '', 'si', '0'):
-            with mock.patch.dict(os.environ, {'VOCAL_ANALYSIS_START': valor}):
-                self.assertFalse(start_analysis_enabled(), valor)
+        for raw_value in ('off', 'OFF', '', 'si', '0'):
+            with mock.patch.dict(os.environ, {'VOCAL_ANALYSIS_START': raw_value}):
+                self.assertFalse(start_analysis_enabled(), raw_value)

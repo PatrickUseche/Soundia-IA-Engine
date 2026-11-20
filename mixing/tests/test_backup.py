@@ -19,25 +19,25 @@ CREADA = datetime(2026, 10, 20, 15, 30, 45, 123456, tzinfo=timezone.utc)
 
 
 def guardar(**cambios) -> MixRecording:
-    datos = dict(
+    payload_data = dict(
         source='manual', dj='dj-prueba', mix_out_at=240.0, mix_in_at=0.5, overlap_seconds=32.0, pitch_a=1.0,
         pitch_b=1.02, curves={'crossfader': [[0, 0.0], [32, 1.0]], 'a': {'low': [[0, 1.0], [16, 0.0]]}},
         snapshot_a=SNAP_A, snapshot_b=SNAP_B, genre_a='salsa', genre_b='merengue', quality='good', notes='buena mezcla',
     )
-    datos.update(cambios)
-    recording = MixRecording.objects.create(**datos)
+    payload_data.update(cambios)
+    recording = MixRecording.objects.create(**payload_data)
     MixRecording.objects.filter(pk=recording.pk).update(created_at=CREADA)
     return MixRecording.objects.get(pk=recording.pk)
 
 
 class ExportTests(TestCase):
     def test_sin_grabaciones_exporta_una_lista_vacia(self):
-        copia = export_recordings()
+        backup_data = export_recordings()
 
-        self.assertEqual(copia['format'], BACKUP_FORMAT)
-        self.assertEqual(copia['version'], BACKUP_VERSION)
-        self.assertEqual(copia['recordings'], [])
-        self.assertIn('exportedAt', copia)
+        self.assertEqual(backup_data['format'], BACKUP_FORMAT)
+        self.assertEqual(backup_data['version'], BACKUP_VERSION)
+        self.assertEqual(backup_data['recordings'], [])
+        self.assertIn('exportedAt', backup_data)
 
     def test_exporta_todos_los_datos_de_la_grabacion_sin_ids_de_pista(self):
         guardar()
@@ -70,14 +70,14 @@ class ExportTests(TestCase):
 
 
 class ImportTests(TestCase):
-    def copia(self):
+    def backup_data(self):
         guardar()
-        copia = json.loads(json.dumps(export_recordings()))
+        backup_data = json.loads(json.dumps(export_recordings()))
         MixRecording.objects.all().delete()
-        return copia
+        return backup_data
 
     def test_restaura_las_grabaciones_con_su_fecha_original(self):
-        created, skipped = import_recordings(self.copia())
+        created, skipped = import_recordings(self.backup_data())
 
         self.assertEqual((created, skipped), (1, 0))
         recording = MixRecording.objects.get()
@@ -88,10 +88,10 @@ class ImportTests(TestCase):
         self.assertIsNone(recording.from_track)
 
     def test_restaurar_dos_veces_no_duplica(self):
-        copia = self.copia()
+        backup_data = self.backup_data()
 
-        import_recordings(copia)
-        created, skipped = import_recordings(copia)
+        import_recordings(backup_data)
+        created, skipped = import_recordings(backup_data)
 
         self.assertEqual((created, skipped), (0, 1))
         self.assertEqual(MixRecording.objects.count(), 1)
@@ -99,10 +99,10 @@ class ImportTests(TestCase):
     def test_ida_y_vuelta_conserva_todo(self):
         guardar(notes='otra', mix_out_at=100.0)
         antes = export_recordings()['recordings']
-        copia = json.loads(json.dumps(export_recordings()))
+        backup_data = json.loads(json.dumps(export_recordings()))
         MixRecording.objects.all().delete()
 
-        import_recordings(copia)
+        import_recordings(backup_data)
 
         self.assertEqual(export_recordings()['recordings'], antes)
 
@@ -112,36 +112,36 @@ class ImportTests(TestCase):
                 import_recordings(basura)
 
     def test_rechaza_una_version_desconocida(self):
-        copia = self.copia()
-        copia['version'] = 99
+        backup_data = self.backup_data()
+        backup_data['version'] = 99
 
         with self.assertRaisesRegex(InvalidRecording, 'Version'):
-            import_recordings(copia)
+            import_recordings(backup_data)
 
     def test_todo_o_nada_una_grabacion_invalida_impide_guardar_las_demas(self):
-        copia = self.copia()
-        mala = copy.deepcopy(copia['recordings'][0])
+        backup_data = self.backup_data()
+        mala = copy.deepcopy(backup_data['recordings'][0])
         mala['overlapSeconds'] = 0
         mala['mixOutAt'] = 11.0
-        copia['recordings'].append(mala)
+        backup_data['recordings'].append(mala)
 
         with self.assertRaisesRegex(InvalidRecording, 'Grabacion 2'):
-            import_recordings(copia)
+            import_recordings(backup_data)
 
         self.assertEqual(MixRecording.objects.count(), 0)
 
     def test_valida_los_campos_de_cada_grabacion(self):
-        base = self.copia()['recordings'][0]
+        base = self.backup_data()['recordings'][0]
         casos = {
             'source': {'source': 'robot'}, 'quality': {'quality': 'genial'}, 'fecha': {'createdAt': 'ayer'},
             'sin zona horaria': {'createdAt': '2026-10-20T15:30:45'}, 'pitch': {'pitchA': 9},
             'foto': {'snapshotA': {}}, 'curvas': {'curves': {'crossfader': 'no'}}, 'solape': {'overlapSeconds': 'mucho'},
         }
-        for nombre, cambios in casos.items():
-            with self.subTest(nombre):
-                copia = {'format': BACKUP_FORMAT, 'version': BACKUP_VERSION, 'recordings': [{**base, **cambios}]}
+        for file_name, cambios in casos.items():
+            with self.subTest(file_name):
+                backup_data = {'format': BACKUP_FORMAT, 'version': BACKUP_VERSION, 'recordings': [{**base, **cambios}]}
                 with self.assertRaises(InvalidRecording):
-                    import_recordings(copia)
+                    import_recordings(backup_data)
         self.assertEqual(MixRecording.objects.count(), 0)
 
 
@@ -157,19 +157,19 @@ class BackupViewsTests(TestCase):
 
     def test_importar_restaura_y_responde_201(self):
         guardar()
-        copia = self.client.get('/api/mix/recordings/export').json()
+        backup_data = self.client.get('/api/mix/recordings/export').json()
         MixRecording.objects.all().delete()
 
-        respuesta = self.client.post('/api/mix/recordings/import', data=json.dumps(copia), content_type='application/json')
+        respuesta = self.client.post('/api/mix/recordings/import', data=json.dumps(backup_data), content_type='application/json')
 
         self.assertEqual(respuesta.status_code, 201)
         self.assertEqual(respuesta.json(), {'created': 1, 'skipped': 0})
 
     def test_importar_lo_que_ya_esta_responde_200_sin_duplicar(self):
         guardar()
-        copia = self.client.get('/api/mix/recordings/export').json()
+        backup_data = self.client.get('/api/mix/recordings/export').json()
 
-        respuesta = self.client.post('/api/mix/recordings/import', data=json.dumps(copia), content_type='application/json')
+        respuesta = self.client.post('/api/mix/recordings/import', data=json.dumps(backup_data), content_type='application/json')
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.json(), {'created': 0, 'skipped': 1})
@@ -195,15 +195,15 @@ class BackupViewsTests(TestCase):
 class BackupCommandTests(TestCase):
     def test_exporta_a_un_archivo_y_restaura_desde_el(self):
         guardar()
-        with tempfile.TemporaryDirectory() as carpeta:
-            archivo = Path(carpeta) / 'copia.json'
+        with tempfile.TemporaryDirectory() as folder:
+            audio_path_name = Path(folder) / 'copia.json'
             salida = StringIO()
-            call_command('recordings_backup', export=str(archivo), stdout=salida)
+            call_command('recordings_backup', export=str(audio_path_name), stdout=salida)
             self.assertIn('1 grabacion(es) guardadas', salida.getvalue())
             MixRecording.objects.all().delete()
 
             salida = StringIO()
-            call_command('recordings_backup', importar=str(archivo), stdout=salida)
+            call_command('recordings_backup', importar=str(audio_path_name), stdout=salida)
 
             self.assertIn('1 grabacion(es) restauradas', salida.getvalue())
         self.assertEqual(MixRecording.objects.count(), 1)
@@ -213,18 +213,18 @@ class BackupCommandTests(TestCase):
             call_command('recordings_backup', importar='no-existe.json')
 
     def test_un_archivo_que_no_es_json_da_un_error_claro(self):
-        with tempfile.TemporaryDirectory() as carpeta:
-            archivo = Path(carpeta) / 'mal.json'
-            archivo.write_text('esto no es json', encoding='utf-8')
+        with tempfile.TemporaryDirectory() as folder:
+            audio_path_name = Path(folder) / 'mal.json'
+            audio_path_name.write_text('esto no es json', encoding='utf-8')
 
             with self.assertRaisesRegex(CommandError, 'JSON valido'):
-                call_command('recordings_backup', importar=str(archivo))
+                call_command('recordings_backup', importar=str(audio_path_name))
 
     def test_un_archivo_invalido_no_restaura_nada(self):
-        with tempfile.TemporaryDirectory() as carpeta:
-            archivo = Path(carpeta) / 'copia.json'
-            archivo.write_text(json.dumps({'format': BACKUP_FORMAT, 'version': 1, 'recordings': [{}]}), encoding='utf-8')
+        with tempfile.TemporaryDirectory() as folder:
+            audio_path_name = Path(folder) / 'copia.json'
+            audio_path_name.write_text(json.dumps({'format': BACKUP_FORMAT, 'version': 1, 'recordings': [{}]}), encoding='utf-8')
 
             with self.assertRaisesRegex(CommandError, 'No se restauro nada'):
-                call_command('recordings_backup', importar=str(archivo))
+                call_command('recordings_backup', importar=str(audio_path_name))
         self.assertEqual(MixRecording.objects.count(), 0)

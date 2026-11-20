@@ -86,7 +86,7 @@ def _chunked_frames(y: np.ndarray, chunk_frames: int, margin_frames: int, comput
 def _onset_envelope(y: np.ndarray, sr: int) -> np.ndarray:
     parts = _chunked_frames(
         y, ENVELOPE_CHUNK_FRAMES, ENVELOPE_MARGIN_FRAMES,
-        lambda tramo: librosa.onset.onset_strength(y=tramo, sr=sr, hop_length=ANALYSIS_HOP))
+        lambda segment_span: librosa.onset.onset_strength(y=segment_span, sr=sr, hop_length=ANALYSIS_HOP))
     return np.concatenate(parts)
 
 
@@ -171,7 +171,7 @@ def detect_key(y: np.ndarray, sr: int) -> KeyEstimate:
     validate_signal(y, sr)
     parts = _chunked_frames(
         y, CHROMA_CHUNK_FRAMES, CHROMA_MARGIN_FRAMES,
-        lambda tramo: librosa.feature.chroma_cqt(y=tramo, sr=sr, hop_length=ANALYSIS_HOP))
+        lambda segment_span: librosa.feature.chroma_cqt(y=segment_span, sr=sr, hop_length=ANALYSIS_HOP))
     mean_chroma = np.concatenate(parts, axis=1).mean(axis=1)
     if np.std(mean_chroma) == 0:
         raise ValueError("No se pudo estimar la tonalidad: el audio no tiene contenido tonal.")

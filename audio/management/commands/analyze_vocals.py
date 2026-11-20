@@ -20,20 +20,20 @@ class Command(BaseCommand):
             ))
             return
 
-        pistas = Track.objects.exclude(audio_file='')
+        track_list = Track.objects.exclude(audio_file='')
         if not options['all']:
-            pistas = pistas.exclude(vocal_status=Track.VOCALS_DONE)
-        pistas = list(pistas.order_by('id'))
+            track_list = track_list.exclude(vocal_status=Track.VOCALS_DONE)
+        track_list = list(track_list.order_by('id'))
 
-        self.stdout.write(f'Analizando la voz de {len(pistas)} pista(s). Puede tardar unos minutos por pista.')
-        for pista in pistas:
-            vocal_jobs.run_vocal_analysis(pista.id)
-            pista.refresh_from_db()
-            if pista.vocal_status == Track.VOCALS_DONE:
-                if pista.vocal_last_end is None:
-                    resultado = 'sin voz en el final'
+        self.stdout.write(f'Analizando la voz de {len(track_list)} pista(s). Puede tardar unos minutos por pista.')
+        for track_obj in track_list:
+            vocal_jobs.run_vocal_analysis(track_obj.id)
+            track_obj.refresh_from_db()
+            if track_obj.vocal_status == Track.VOCALS_DONE:
+                if track_obj.vocal_last_end is None:
+                    outcome = 'sin voz en el final'
                 else:
-                    resultado = f'la voz acaba en {pista.vocal_last_end:.1f} s'
-                self.stdout.write(self.style.SUCCESS(f'  {pista.title}: {resultado}'))
+                    outcome = f'la voz acaba en {track_obj.vocal_last_end:.1f} s'
+                self.stdout.write(self.style.SUCCESS(f'  {track_obj.title}: {outcome}'))
             else:
-                self.stdout.write(self.style.WARNING(f'  {pista.title}: {pista.get_vocal_status_display()}'))
+                self.stdout.write(self.style.WARNING(f'  {track_obj.title}: {track_obj.get_vocal_status_display()}'))

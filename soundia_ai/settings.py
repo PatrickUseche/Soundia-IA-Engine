@@ -49,11 +49,11 @@ STORAGES = {
     'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
 }
 if os.environ.get('S3_BUCKET'):
-    _s3 = {nombre: os.environ.get(nombre, '').strip()
-           for nombre in ('S3_ENDPOINT_URL', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY')}
-    _faltan = [nombre for nombre, valor in _s3.items() if not valor]
-    if _faltan:
-        raise ImproperlyConfigured('Con S3_BUCKET definido tambien hacen falta: ' + ', '.join(_faltan) + '.')
+    _s3 = {file_name: os.environ.get(file_name, '').strip()
+           for file_name in ('S3_ENDPOINT_URL', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY')}
+    _missing = [file_name for file_name, raw_value in _s3.items() if not raw_value]
+    if _missing:
+        raise ImproperlyConfigured('Con S3_BUCKET definido tambien hacen falta: ' + ', '.join(_missing) + '.')
     STORAGES['default'] = {
         'BACKEND': 'storages.backends.s3.S3Storage',
         'OPTIONS': {

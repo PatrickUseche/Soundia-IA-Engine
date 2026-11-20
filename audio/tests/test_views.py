@@ -24,13 +24,13 @@ def cancion(bpm=120, seconds=30, sr=SR):
     return click_track(bpm, seconds, sr=sr, amplitude=0.5) + armonia
 
 
-def wav(y, sr=SR, nombre='tema.wav'):
-    return SimpleUploadedFile(nombre, to_wav_bytes(y, sr), content_type='audio/wav')
+def wav(y, sr=SR, file_name='tema.wav'):
+    return SimpleUploadedFile(file_name, to_wav_bytes(y, sr), content_type='audio/wav')
 
 
 class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
-    def subir(self, archivo, **extra):
-        return self.client.post(ANALYZE, {'file': archivo, **extra})
+    def subir(self, audio_path_name, **extra):
+        return self.client.post(ANALYZE, {'file': audio_path_name, **extra})
 
     def test_analiza_y_guarda_la_pista(self):
         response = self.subir(wav(cancion(bpm=124)))
@@ -46,7 +46,7 @@ class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
         self.assertEqual(Track.objects.get().camelot, '8B')
 
     def test_el_titulo_por_defecto_es_el_nombre_del_archivo(self):
-        response = self.subir(wav(cancion(), nombre='mi_tema.wav'))
+        response = self.subir(wav(cancion(), file_name='mi_tema.wav'))
 
         self.assertEqual(response.json()['title'], 'mi_tema.wav')
 
@@ -68,16 +68,16 @@ class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
         self.assertEqual(Track.objects.count(), 0)
 
     def test_el_titulo_enviado_tiene_prioridad(self):
-        response = self.subir(wav(cancion(), nombre='mi_tema.wav'), title='Mi tema (Extended Mix)')
+        response = self.subir(wav(cancion(), file_name='mi_tema.wav'), title='Mi tema (Extended Mix)')
 
         self.assertEqual(response.json()['title'], 'Mi tema (Extended Mix)')
 
     def test_un_archivo_grande_que_django_guarda_en_disco_tambien_se_analiza(self):
         # A 44.1 kHz, 40 s pesan ~3.5 MB: supera los 2.5 MB que Django mantiene en memoria.
-        archivo = wav(cancion(seconds=40, sr=44100), sr=44100)
-        self.assertGreater(archivo.size, 2_621_440)
+        audio_path_name = wav(cancion(seconds=40, sr=44100), sr=44100)
+        self.assertGreater(audio_path_name.size, 2_621_440)
 
-        response = self.subir(archivo)
+        response = self.subir(audio_path_name)
 
         self.assertEqual(response.status_code, 201)
         self.assertAlmostEqual(response.json()['bpm'], 120, delta=2)
@@ -127,29 +127,29 @@ class AnalyzeTrackViewTests(TempMediaMixin, TestCase):
 
         track = Track.objects.get(pk=response.json()['id'])
         self.assertTrue(track.audio_file)
-        with track.audio_file.open('rb') as archivo:
-            self.assertEqual(archivo.read(), original)
+        with track.audio_file.open('rb') as audio_path_name:
+            self.assertEqual(audio_path_name.read(), original)
         self.assertTrue(response.json()['hasAudio'])
 
     def test_un_audio_que_no_se_pudo_analizar_no_deja_archivos_guardados(self):
         import os
         from django.conf import settings
-        carpeta = os.path.join(settings.MEDIA_ROOT, 'tracks')
+        folder = os.path.join(settings.MEDIA_ROOT, 'tracks')
         # La carpeta temporal se comparte entre las pruebas de la clase: se compara antes y despues.
-        antes = sorted(os.listdir(carpeta)) if os.path.exists(carpeta) else []
+        antes = sorted(os.listdir(folder)) if os.path.exists(folder) else []
 
         self.subir(wav(sine(440, 1.0)))
 
-        despues = sorted(os.listdir(carpeta)) if os.path.exists(carpeta) else []
+        despues = sorted(os.listdir(folder)) if os.path.exists(folder) else []
         self.assertEqual(despues, antes)
         self.assertEqual(Track.objects.count(), 0)
 
 
 class VocalAnalysisViewTests(TempMediaMixin, TestCase):
     def crear(self, **cambios):
-        datos = dict(title='x', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
-        datos.update(cambios)
-        return Track.objects.create(**datos)
+        payload_data = dict(title='x', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.5)
+        payload_data.update(cambios)
+        return Track.objects.create(**payload_data)
 
     def test_subir_una_pista_pide_analizar_su_voz_y_responde_con_el_estado(self):
         def pedir(track):
@@ -165,19 +165,19 @@ class VocalAnalysisViewTests(TempMediaMixin, TestCase):
         self.assertEqual(response.json()['vocals']['status'], 'pending')
 
     def test_pedir_el_analisis_de_voz_de_una_pista_existente(self):
-        pista = self.crear()
+        track_obj = self.crear()
 
         with mock.patch('audio.views.request_vocal_analysis', return_value='pending') as pedido,                 mock.patch('audio.views.is_available', return_value=True):
-            response = self.client.post(f'{TRACKS}/{pista.id}/vocals')
+            response = self.client.post(f'{TRACKS}/{track_obj.id}/vocals')
 
         self.assertEqual(response.status_code, 202)
-        pedido.assert_called_once_with(pista)
+        pedido.assert_called_once_with(track_obj)
 
     def test_sin_el_modelo_instalado_responde_503_y_lo_explica(self):
-        pista = self.crear()
+        track_obj = self.crear()
 
         with mock.patch('audio.views.is_available', return_value=False):
-            response = self.client.post(f'{TRACKS}/{pista.id}/vocals')
+            response = self.client.post(f'{TRACKS}/{track_obj.id}/vocals')
 
         self.assertEqual(response.status_code, 503)
         self.assertIn('requirements-vocals.txt', response.json()['error'])
@@ -186,17 +186,17 @@ class VocalAnalysisViewTests(TempMediaMixin, TestCase):
         self.assertEqual(self.client.post(f'{TRACKS}/9999/vocals').status_code, 404)
 
     def test_solo_acepta_post(self):
-        pista = self.crear()
+        track_obj = self.crear()
 
-        self.assertEqual(self.client.get(f'{TRACKS}/{pista.id}/vocals').status_code, 405)
+        self.assertEqual(self.client.get(f'{TRACKS}/{track_obj.id}/vocals').status_code, 405)
 
 
 class TrackQueryViewTests(TempMediaMixin, TestCase):
     def crear(self, titulo, **cambios):
-        datos = dict(title=titulo, duration=200.0, bpm=128.0, key='C major', camelot='8B',
+        payload_data = dict(title=titulo, duration=200.0, bpm=128.0, key='C major', camelot='8B',
                      energy=0.5, cue_points=[0.0, 30.0])
-        datos.update(cambios)
-        return Track.objects.create(**datos)
+        payload_data.update(cambios)
+        return Track.objects.create(**payload_data)
 
     def test_lista_las_pistas_mas_recientes_primero(self):
         self.crear('primera')
@@ -298,22 +298,22 @@ class GeneroDeLaPistaViewTests(TestCase):
 
 
 class BorrarPistaViewTests(TempMediaMixin, TestCase):
-    def crear_con_audio(self, nombre='tema.wav'):
+    def crear_con_audio(self, file_name='tema.wav'):
         track = Track.objects.create(
-            title=nombre, duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
-        track.audio_file.save(nombre, SimpleUploadedFile(nombre, b'RIFFdatos'))
+            title=file_name, duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
+        track.audio_file.save(file_name, SimpleUploadedFile(file_name, b'RIFFdatos'))
         return track
 
     def test_borra_la_pista_y_su_audio(self):
         track = self.crear_con_audio()
-        storage, nombre = track.audio_file.storage, track.audio_file.name
-        self.assertTrue(storage.exists(nombre))
+        storage, file_name = track.audio_file.storage, track.audio_file.name
+        self.assertTrue(storage.exists(file_name))
 
         response = self.client.delete(f'{TRACKS}/{track.id}')
 
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Track.objects.filter(pk=track.id).exists())
-        self.assertFalse(storage.exists(nombre))
+        self.assertFalse(storage.exists(file_name))
 
     def test_borra_una_pista_sin_audio(self):
         track = Track.objects.create(
@@ -360,10 +360,10 @@ class BorrarPistaViewTests(TempMediaMixin, TestCase):
 
 
 class TrackFileViewTests(TempMediaMixin, TestCase):
-    def crear_con_audio(self, contenido=b'RIFFdatos', nombre='tema.wav'):
+    def crear_con_audio(self, contenido=b'RIFFdatos', file_name='tema.wav'):
         track = Track.objects.create(
-            title=nombre, duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
-        track.audio_file.save(nombre, SimpleUploadedFile(nombre, contenido))
+            title=file_name, duration=10.0, bpm=128.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
+        track.audio_file.save(file_name, SimpleUploadedFile(file_name, contenido))
         return track
 
     def test_devuelve_el_audio_guardado(self):
@@ -376,9 +376,9 @@ class TrackFileViewTests(TempMediaMixin, TestCase):
 
     def test_el_tipo_de_contenido_depende_de_la_extension(self):
         casos = {'tema.wav': 'audio/', 'tema.mp3': 'audio/mpeg', 'tema.flac': 'audio/'}
-        for nombre, esperado in casos.items():
-            with self.subTest(nombre=nombre):
-                track = self.crear_con_audio(nombre=nombre)
+        for file_name, esperado in casos.items():
+            with self.subTest(file_name=file_name):
+                track = self.crear_con_audio(file_name=file_name)
 
                 response = self.client.get(f'{TRACKS}/{track.id}/file')
 
@@ -476,15 +476,15 @@ class FijarPrimerTiempoViewTests(TestCase):
 
     def setUp(self):
         # 120 BPM: pulso de 0.5 s y compas de 2 s; primer pulso en 0.1; primer tiempo dudoso (confianza 0.03).
-        self.pista = Track.objects.create(
+        self.track_obj = Track.objects.create(
             title='tema', duration=60.0, bpm=120.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0],
             grid_offset=0.1, grid_downbeat=0.1, grid_confidence=0.03)
-        self.url = f'{TRACKS}/{self.pista.id}/grid'
+        self.url = f'{TRACKS}/{self.track_obj.id}/grid'
 
     def fijar(self, cuerpo, pk=None):
         url = self.url if pk is None else f'{TRACKS}/{pk}/grid'
-        datos = cuerpo if isinstance(cuerpo, (str, bytes)) else json.dumps(cuerpo)
-        return self.client.put(url, data=datos, content_type='application/json')
+        payload_data = cuerpo if isinstance(cuerpo, (str, bytes)) else json.dumps(cuerpo)
+        return self.client.put(url, data=payload_data, content_type='application/json')
 
     def test_guarda_el_primer_tiempo_con_confianza_total_y_marca_la_rejilla_como_manual(self):
         respuesta = self.fijar({'downbeat': 4.6})
@@ -493,20 +493,20 @@ class FijarPrimerTiempoViewTests(TestCase):
         self.assertEqual(
             respuesta.json()['grid'],
             {'offset': 0.1, 'downbeat': 0.6, 'confidence': 1.0, 'manual': True, 'wobbleMs': None})
-        self.pista.refresh_from_db()
-        self.assertEqual((self.pista.grid_downbeat, self.pista.grid_confidence, self.pista.grid_manual), (0.6, 1.0, True))
+        self.track_obj.refresh_from_db()
+        self.assertEqual((self.track_obj.grid_downbeat, self.track_obj.grid_confidence, self.track_obj.grid_manual), (0.6, 1.0, True))
 
     def test_no_toca_la_fase_de_los_pulsos_ni_el_tempo(self):
         self.fijar({'downbeat': 12.34})
 
-        self.pista.refresh_from_db()
-        self.assertEqual((self.pista.grid_offset, self.pista.bpm), (0.1, 120.0))
+        self.track_obj.refresh_from_db()
+        self.assertEqual((self.track_obj.grid_offset, self.track_obj.bpm), (0.1, 120.0))
 
     def test_ajusta_el_instante_al_pulso_mas_cercano(self):
         self.fijar({'downbeat': 4.62})
 
-        self.pista.refresh_from_db()
-        self.assertEqual(self.pista.grid_downbeat, 0.6)
+        self.track_obj.refresh_from_db()
+        self.assertEqual(self.track_obj.grid_downbeat, 0.6)
 
     def test_acepta_un_entero_y_los_limites_de_la_pista(self):
         self.assertEqual(self.fijar({'downbeat': 4}).status_code, 200)
@@ -516,10 +516,10 @@ class FijarPrimerTiempoViewTests(TestCase):
     def test_la_consulta_posterior_devuelve_la_rejilla_manual(self):
         self.fijar({'downbeat': 4.6})
 
-        self.assertEqual(self.client.get(f'{TRACKS}/{self.pista.id}').json()['grid']['manual'], True)
+        self.assertEqual(self.client.get(f'{TRACKS}/{self.track_obj.id}').json()['grid']['manual'], True)
 
     def test_una_pista_sin_fijar_a_mano_dice_manual_false(self):
-        self.assertFalse(self.client.get(f'{TRACKS}/{self.pista.id}').json()['grid']['manual'])
+        self.assertFalse(self.client.get(f'{TRACKS}/{self.track_obj.id}').json()['grid']['manual'])
 
     def test_rechaza_un_cuerpo_que_no_es_un_objeto_json(self):
         for cuerpo in ('no es json', '[1, 2]', '"texto"', 'null', ''):
@@ -539,8 +539,8 @@ class FijarPrimerTiempoViewTests(TestCase):
     def test_una_peticion_rechazada_no_cambia_nada(self):
         self.fijar({'downbeat': 999})
 
-        self.pista.refresh_from_db()
-        self.assertEqual((self.pista.grid_downbeat, self.pista.grid_confidence, self.pista.grid_manual), (0.1, 0.03, False))
+        self.track_obj.refresh_from_db()
+        self.assertEqual((self.track_obj.grid_downbeat, self.track_obj.grid_confidence, self.track_obj.grid_manual), (0.1, 0.03, False))
 
     def test_una_pista_sin_rejilla_responde_409(self):
         sin_ritmo = Track.objects.create(

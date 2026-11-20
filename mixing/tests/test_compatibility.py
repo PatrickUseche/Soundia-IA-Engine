@@ -63,33 +63,33 @@ class EnergyScoreTests(SimpleTestCase):
 
 class CompatibilityTests(SimpleTestCase):
     def test_pistas_identicas_puntuan_el_maximo(self):
-        resultado = compatibility(track(1), track(2))
+        outcome = compatibility(track(1), track(2))
 
-        self.assertEqual(resultado.score, 1.0)
+        self.assertEqual(outcome.score, 1.0)
 
     def test_expone_cada_criterio_y_el_ajuste_de_tempo(self):
-        resultado = compatibility(track(1, bpm=128), track(2, bpm=126, camelot='9B', energy=0.5))
+        outcome = compatibility(track(1, bpm=128), track(2, bpm=126, camelot='9B', energy=0.5))
 
-        self.assertTrue(resultado.tempo_match.feasible)
-        self.assertEqual(resultado.harmonic, 0.8)
-        self.assertAlmostEqual(resultado.energy, 0.9)
-        self.assertGreater(resultado.tempo, 0.0)
-        self.assertLess(resultado.score, 1.0)
+        self.assertTrue(outcome.tempo_match.feasible)
+        self.assertEqual(outcome.harmonic, 0.8)
+        self.assertAlmostEqual(outcome.energy, 0.9)
+        self.assertGreater(outcome.tempo, 0.0)
+        self.assertLess(outcome.score, 1.0)
 
     def test_la_puntuacion_combina_los_tres_criterios_con_sus_pesos(self):
         a, b = track(1, bpm=128), track(2, bpm=128, camelot='9B', energy=0.4)
 
-        resultado = compatibility(a, b)
+        outcome = compatibility(a, b)
 
         esperado = TEMPO_WEIGHT * 1.0 + HARMONIC_WEIGHT * 0.8 + ENERGY_WEIGHT * 0.8
-        self.assertAlmostEqual(resultado.score, esperado, places=3)
+        self.assertAlmostEqual(outcome.score, esperado, places=3)
 
     def test_tempos_imposibles_de_igualar_restan_todo_el_peso_del_tempo(self):
-        resultado = compatibility(track(1, bpm=128), track(2, bpm=174))
+        outcome = compatibility(track(1, bpm=128), track(2, bpm=174))
 
-        self.assertEqual(resultado.tempo, 0.0)
-        self.assertFalse(resultado.tempo_match.feasible)
-        self.assertAlmostEqual(resultado.score, HARMONIC_WEIGHT + ENERGY_WEIGHT, places=3)
+        self.assertEqual(outcome.tempo, 0.0)
+        self.assertFalse(outcome.tempo_match.feasible)
+        self.assertAlmostEqual(outcome.score, HARMONIC_WEIGHT + ENERGY_WEIGHT, places=3)
 
     def test_el_orden_de_los_argumentos_no_cambia_la_puntuacion_armonica_ni_de_energia(self):
         a, b = track(1, camelot='3A', energy=0.2), track(2, camelot='4A', energy=0.9)
@@ -115,19 +115,19 @@ class CompatibilityTests(SimpleTestCase):
 
 class RankNextTracksTests(SimpleTestCase):
     def test_ordena_de_mejor_a_peor(self):
-        actual = track(1, bpm=128, camelot='8B')
+        current_value = track(1, bpm=128, camelot='8B')
         perfecta = track(2, bpm=128, camelot='8B')
         buena = track(3, bpm=126, camelot='9B')
         mala = track(4, bpm=170, camelot='2A')
 
-        ranking = rank_next_tracks(actual, [mala, buena, perfecta])
+        ranking = rank_next_tracks(current_value, [mala, buena, perfecta])
 
         self.assertEqual([t.id for t, _ in ranking], [2, 3, 4])
 
     def test_excluye_la_pista_actual(self):
-        actual = track(1)
+        current_value = track(1)
 
-        ranking = rank_next_tracks(actual, [actual, track(2)])
+        ranking = rank_next_tracks(current_value, [current_value, track(2)])
 
         self.assertEqual([t.id for t, _ in ranking], [2])
 
@@ -149,11 +149,11 @@ class RankNextTracksTests(SimpleTestCase):
             rank_next_tracks(track(1), [track(2)], limit=0)
 
     def test_prefiere_una_pista_armonica_aunque_tenga_un_poco_menos_de_tempo(self):
-        actual = track(1, bpm=128, camelot='8B')
+        current_value = track(1, bpm=128, camelot='8B')
         misma_tonalidad = track(2, bpm=124, camelot='8B')      # tempo flojo, armonia perfecta
         tonalidad_lejana = track(3, bpm=128, camelot='3A')     # tempo perfecto, armonia nula
 
-        ranking = rank_next_tracks(actual, [tonalidad_lejana, misma_tonalidad])
+        ranking = rank_next_tracks(current_value, [tonalidad_lejana, misma_tonalidad])
 
         self.assertEqual(ranking[0][0].id, 2)
 
@@ -194,12 +194,12 @@ class ScoringWeightsTests(SimpleTestCase):
         self.assertEqual(solo_armonia.score, 0.0)
 
     def test_los_pesos_cambian_el_orden_del_ranking(self):
-        actual = track(1, bpm=128, camelot='8B')
+        current_value = track(1, bpm=128, camelot='8B')
         buen_tempo = track(2, bpm=128, camelot='3A')        # tempo perfecto, armonia nula
         buena_armonia = track(3, bpm=122, camelot='8B')     # armonia perfecta, tempo regular
 
-        con_tempo = rank_next_tracks(actual, [buen_tempo, buena_armonia], weights=ScoringWeights(0.9, 0.05, 0.05))
-        con_armonia = rank_next_tracks(actual, [buen_tempo, buena_armonia], weights=ScoringWeights(0.05, 0.9, 0.05))
+        con_tempo = rank_next_tracks(current_value, [buen_tempo, buena_armonia], weights=ScoringWeights(0.9, 0.05, 0.05))
+        con_armonia = rank_next_tracks(current_value, [buen_tempo, buena_armonia], weights=ScoringWeights(0.05, 0.9, 0.05))
 
         self.assertEqual(con_tempo[0][0].id, 2)
         self.assertEqual(con_armonia[0][0].id, 3)

@@ -39,95 +39,95 @@ class Command(BaseCommand):
                             help='Falla (codigo de salida distinto de cero) si el acierto exacto total es menor (0.9 = 90 %%).')
 
     def handle(self, *args, **options):
-        ruta = Path(options['path'])
+        file_path = Path(options['path'])
         if options['template']:
-            self.crear_plantilla(ruta, options['out'])
+            self.create_template(file_path, options['out'])
             return
-        if not ruta.is_file():
-            raise CommandError(f'No existe el manifiesto: {ruta}')
+        if not file_path.is_file():
+            raise CommandError(f'No existe el manifiesto: {file_path}')
         try:
-            referencias = load_manifest(ruta)
+            reference_entries = load_manifest(file_path)
         except ValueError as error:
             raise CommandError(str(error)) from error
 
-        con_bpm = [referencia for referencia in referencias if referencia.bpm is not None]
-        sin_bpm = len(referencias) - len(con_bpm)
-        if sin_bpm:
-            self.stdout.write(self.style.WARNING(f'{sin_bpm} fila(s) sin BPM de referencia: se saltan (rellena la columna bpm).'))
-        self.stdout.write(f'Validando {len(con_bpm)} pista(s).')
+        with_bpm = [reference_entry for reference_entry in reference_entries if reference_entry.bpm is not None]
+        without_bpm = len(reference_entries) - len(with_bpm)
+        if without_bpm:
+            self.stdout.write(self.style.WARNING(f'{without_bpm} fila(s) sin BPM de referencia: se saltan (rellena la columna bpm).'))
+        self.stdout.write(f'Validando {len(with_bpm)} pista(s).')
 
-        resultados = [self.analizar(referencia) for referencia in con_bpm]
-        resumen = summarize(resultados, options['tolerance'], options['downbeat_tolerance'])
-        self.imprimir(resumen)
+        outcomes = [self.analyze_reference(reference_entry) for reference_entry in with_bpm]
+        summary_info = summarize(outcomes, options['tolerance'], options['downbeat_tolerance'])
+        self.print_line(summary_info)
         if options['json_out']:
-            self.guardar_json(Path(options['json_out']), resumen, resultados)
+            self.save_json(Path(options['json_out']), summary_info, outcomes)
 
-        minimo = options['min_accuracy']
-        if minimo is not None and resumen[ALL].exact_rate < minimo:
+        min_value = options['min_accuracy']
+        if min_value is not None and summary_info[ALL].exact_rate < min_value:
             raise CommandError(
-                f'El acierto exacto del tempo es {_percent(resumen[ALL].exact_rate)}, menos del mínimo pedido ({_percent(minimo)}).'
+                f'El acierto exacto del tempo es {_percent(summary_info[ALL].exact_rate)}, menos del mínimo pedido ({_percent(min_value)}).'
             )
 
-    def analizar(self, referencia) -> Result:
-        nombre = referencia.path.name
+    def analyze_reference(self, reference_entry) -> Result:
+        file_name = reference_entry.path.name
         try:
-            analisis = analyze_file(referencia.path)
+            analysis_result = analyze_file(reference_entry.path)
         except (UnsupportedAudioError, AudioTooShortError, SilentAudioError, OSError) as error:
-            self.stdout.write(self.style.WARNING(f'  {nombre}: no se pudo analizar ({error})'))
-            return Result(reference=referencia, detected_bpm=None, error=str(error))
-        self.stdout.write(f'  {nombre}: referencia {referencia.bpm:g} BPM, detectado {analisis.bpm:.1f}')
-        return Result(reference=referencia, detected_bpm=analisis.bpm, detected_downbeat=analisis.grid_downbeat)
+            self.stdout.write(self.style.WARNING(f'  {file_name}: no se pudo analizar ({error})'))
+            return Result(reference=reference_entry, detected_bpm=None, error=str(error))
+        self.stdout.write(f'  {file_name}: referencia {reference_entry.bpm:g} BPM, detectado {analysis_result.bpm:.1f}')
+        return Result(reference=reference_entry, detected_bpm=analysis_result.bpm, detected_downbeat=analysis_result.grid_downbeat)
 
-    def imprimir(self, resumen):
+    def print_line(self, summary_info):
         self.stdout.write('')
         self.stdout.write(f'{"género":<16}{"pistas":>7}{"exacto":>9}{"octavas":>9}{"mediana":>10}{"errores":>9}')
-        for genero, datos in resumen.items():
-            mediana = f'{datos.median_error_pct:.1f} %' if datos.median_error_pct is not None else '-'
+        for genre_name, payload_data in summary_info.items():
+            median = f'{payload_data.median_error_pct:.1f} %' if payload_data.median_error_pct is not None else '-'
             self.stdout.write(
-                f'{genero:<16}{datos.total:>7}{_percent(datos.exact_rate):>9}{_percent(datos.octave_rate):>9}'
-                f'{mediana:>10}{datos.errors:>9}'
+                f'{genre_name:<16}{payload_data.total:>7}{_percent(payload_data.exact_rate):>9}{_percent(payload_data.octave_rate):>9}'
+                f'{median:>10}{payload_data.errors:>9}'
             )
-        todas = resumen[ALL]
-        if todas.downbeat_total:
+        overall = summary_info[ALL]
+        if overall.downbeat_total:
             self.stdout.write('')
             self.stdout.write(
-                f'Primer tiempo del compás ({todas.downbeat_total} pistas con referencia): '
-                f'compás {_percent(todas.downbeat_rate)}, pulso {_percent(todas.beat_phase_rate)}.'
+                f'Primer tiempo del compás ({overall.downbeat_total} pistas con referencia): '
+                f'compás {_percent(overall.downbeat_rate)}, pulso {_percent(overall.beat_phase_rate)}.'
             )
 
-    def guardar_json(self, destino: Path, resumen, resultados):
-        datos = {
+    def save_json(self, target_path: Path, summary_info, outcomes):
+        payload_data = {
             'summary': {
-                genero: {
+                genre_name: {
                     'total': s.total, 'exact': s.exact, 'octave': s.octave, 'errors': s.errors,
                     'exactRate': s.exact_rate, 'octaveRate': s.octave_rate, 'medianErrorPct': s.median_error_pct,
                     'downbeatTotal': s.downbeat_total, 'downbeatOk': s.downbeat_ok, 'beatPhaseOk': s.beat_phase_ok,
-                } for genero, s in resumen.items()
+                } for genre_name, s in summary_info.items()
             },
             'tracks': [{
                 'file': r.reference.path.name, 'genre': r.reference.genre, 'referenceBpm': r.reference.bpm,
                 'detectedBpm': r.detected_bpm, 'referenceDownbeat': r.reference.downbeat,
                 'detectedDownbeat': r.detected_downbeat, 'error': r.error,
-            } for r in resultados],
+            } for r in outcomes],
         }
-        destino.write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding='utf-8')
-        self.stdout.write(f'Detalle guardado en {destino}')
+        target_path.write_text(json.dumps(payload_data, ensure_ascii=False, indent=2), encoding='utf-8')
+        self.stdout.write(f'Detalle guardado en {target_path}')
 
-    def crear_plantilla(self, carpeta: Path, destino: str | None):
-        if not carpeta.is_dir():
-            raise CommandError(f'No existe la carpeta: {carpeta}')
+    def create_template(self, folder: Path, target_path: str | None):
+        if not folder.is_dir():
+            raise CommandError(f'No existe la carpeta: {folder}')
         audios = sorted(
-            archivo.relative_to(carpeta).as_posix()
-            for archivo in carpeta.rglob('*') if archivo.is_file() and archivo.suffix.lower() in AUDIO_EXTENSIONS
+            audio_path_name.relative_to(folder).as_posix()
+            for audio_path_name in folder.rglob('*') if audio_path_name.is_file() and audio_path_name.suffix.lower() in AUDIO_EXTENSIONS
         )
-        filas = [TEMPLATE_HEADER] + [[nombre, '', '', ''] for nombre in audios]
-        if destino is None:
-            for fila in filas:
-                self.stdout.write(','.join(fila))
+        csv_rows = [TEMPLATE_HEADER] + [[file_name, '', '', ''] for file_name in audios]
+        if target_path is None:
+            for csv_row in csv_rows:
+                self.stdout.write(','.join(csv_row))
             return
         try:
-            with open(destino, 'x', newline='', encoding='utf-8') as archivo:
-                csv.writer(archivo, lineterminator='\n').writerows(filas)
+            with open(target_path, 'x', newline='', encoding='utf-8') as audio_path_name:
+                csv.writer(audio_path_name, lineterminator='\n').writerows(csv_rows)
         except FileExistsError:
-            raise CommandError(f'El archivo ya existe y no se pisa: {destino}') from None
-        self.stdout.write(f'Plantilla con {len(audios)} audio(s) en {destino}. Rellena bpm (y genre, downbeat si lo sabes).')
+            raise CommandError(f'El archivo ya existe y no se pisa: {target_path}') from None
+        self.stdout.write(f'Plantilla con {len(audios)} audio(s) en {target_path}. Rellena bpm (y genre, downbeat si lo sabes).')

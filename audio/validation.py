@@ -38,8 +38,8 @@ def circular_error(a: float, b: float, period: float) -> float:
     """Distancia entre dos instantes cuando el tiempo da la vuelta cada `period` segundos (nunca pasa de period/2)."""
     if period <= 0:
         raise ValueError('El periodo debe ser positivo.')
-    diferencia = abs(a - b) % period
-    return min(diferencia, period - diferencia)
+    difference = abs(a - b) % period
+    return min(difference, period - difference)
 
 
 @dataclass(frozen=True)
@@ -98,28 +98,28 @@ def _optional_float(text: str, field: str, line: int) -> float | None:
 def load_manifest(path: Path) -> list[Reference]:
     """Lee un CSV con las columnas `file` (obligatoria), `bpm`, `genre` y `downbeat`. Las rutas son relativas al CSV."""
     path = Path(path)
-    with path.open(newline='', encoding='utf-8-sig') as archivo:
-        lector = csv.DictReader(archivo)
-        columnas = [(nombre or '').strip() for nombre in (lector.fieldnames or [])]
-        if 'file' not in columnas:
+    with path.open(newline='', encoding='utf-8-sig') as audio_path_name:
+        reader = csv.DictReader(audio_path_name)
+        columns = [(file_name or '').strip() for file_name in (reader.fieldnames or [])]
+        if 'file' not in columns:
             raise ValueError('El manifiesto necesita una columna «file» con la ruta de cada audio.')
-        lector.fieldnames = columnas
-        referencias = []
-        for fila in lector:
-            valores = {clave: (valor or '').strip() for clave, valor in fila.items() if clave}
-            if not valores.get('file'):
+        reader.fieldnames = columns
+        reference_entries = []
+        for csv_row in reader:
+            field_values = {column_key: (raw_value or '').strip() for column_key, raw_value in csv_row.items() if column_key}
+            if not field_values.get('file'):
                 continue
-            linea = lector.line_num
-            bpm = _optional_float(valores.get('bpm', ''), 'bpm', linea)
+            text_line = reader.line_num
+            bpm = _optional_float(field_values.get('bpm', ''), 'bpm', text_line)
             if bpm is not None and bpm <= 0:
-                raise ValueError(f'línea {linea}: el BPM debe ser mayor que cero.')
-            referencias.append(Reference(
-                path=path.parent / valores['file'],
+                raise ValueError(f'línea {text_line}: el BPM debe ser mayor que cero.')
+            reference_entries.append(Reference(
+                path=path.parent / field_values['file'],
                 bpm=bpm,
-                genre=valores.get('genre', ''),
-                downbeat=_optional_float(valores.get('downbeat', ''), 'downbeat', linea),
+                genre=field_values.get('genre', ''),
+                downbeat=_optional_float(field_values.get('downbeat', ''), 'downbeat', text_line),
             ))
-    return referencias
+    return reference_entries
 
 
 def _summarize_group(results: list[Result], tempo_tolerance: float, downbeat_tolerance: float) -> Summary:
