@@ -108,3 +108,4 @@ Acordado con el usuario (2026-10-24): el DJ usa la versión de la nube, por sesi
 - [ ] docs(ml): conjunto de música libre (Free Music Archive filtrado por licencia de uso comercial) con la lista de pistas y licencias para demo y pruebas [11.4]
 - [ ] chore(ml): sesiones de recogida de datos del DJ: 20 a 30 mezclas buenas por género y 15 a 20 correcciones, con copia de seguridad tras cada sesión [11.5]
 - [x] fix(audio): el primer ataque se busca con la envolvente de ataques calculada por tramos y no con una STFT de la pista entera: en una pista de 8 min sin ritmo claro el pico de memoria bajaba de 798 a 323 MB (con 512 MB de RAM en Render el motor se quedaba sin memoria con una sola canción); resultado idéntico en 48 de 49 pistas y la otra a 0,02 s [11.8]
+- [x] fix(ops): registrar en la consola (el log de Render) los errores 500 con su traza: con DEBUG=False Django no los imprime y el log mostraba `POST /api/audio/analyze 500` sin motivo [11.9]
