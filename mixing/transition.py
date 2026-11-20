@@ -134,10 +134,20 @@ def choose_fade_out(track: TrackInfo, transition_seconds: float, advance: float 
     return round(max(start - advance, 0.0), 3)
 
 
+# Un cue de salida solo se usa si queda a esta distancia (s) o menos del ultimo punto en que cabe la transicion. Sin este
+# limite, cuando el cue de salida no cabia (mezcla larga y pista con pocos cues) se elegia el de inicio o uno de mitad de
+# la pista, y el Auto-DJ mezclaba a los pocos segundos de empezarla: no la dejaba sonar.
+MAX_EARLY_EXIT_SECONDS = 60.0
+
+
 def choose_mix_out(track: TrackInfo, transition_seconds: float) -> float:
-    """Ultimo punto de mezcla de la pista en el que la transicion todavia cabe antes del final."""
+    """Ultimo punto de mezcla de la pista en el que la transicion todavia cabe antes del final.
+
+    Es el ultimo cue que cabe, siempre que no quede a mas de MAX_EARLY_EXIT_SECONDS del limite; si no hay ninguno asi, el
+    propio limite (el instante mas tardio en que cabe la transicion)."""
     latest = max(track.duration - transition_seconds, 0.0)
-    fitting = [cue for cue in track.cue_points if cue <= latest + END_TOLERANCE_SECONDS]
+    fitting = [cue for cue in track.cue_points
+               if latest - MAX_EARLY_EXIT_SECONDS <= cue <= latest + END_TOLERANCE_SECONDS]
     return round(max(fitting), 3) if fitting else round(latest, 3)
 
 
