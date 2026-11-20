@@ -97,3 +97,11 @@ Acordado con el usuario (2026-10-24): el DJ usa la versión de la nube, por sesi
 - [x] feat(tracks): el listado de pistas llega a 200 (antes 50) y es configurable con `TRACK_LIST_LIMIT` [10.3]
 - [x] fix(audio): devolver al sistema la memoria de cada análisis (`malloc_trim`), `MALLOC_ARENA_MAX=2` y 2 hilos en Render, porque con varias pistas seguidas el motor se quedaba sin memoria [9.8]
 - [x] feat(ml): resumen por género de las mezclas grabadas (`GET /api/mix/recordings/summary` y `manage.py recordings_report`): primer paso antes de entrenar modelos [8.12]
+
+## Fase 11 — Mejorar y entrenar la IA con datos propios y externos (plan en `docs/PLAN-MEJORA-IA.md`)
+
+- [x] docs(ml): plan para mejorar y entrenar la IA, con la comparación de conjuntos de datos y estudios de DJs [11.1]
+- [ ] feat(audio): `manage.py validate_beats` para medir el tempo y los tiempos del motor contra pistas anotadas (conjunto Salsa y pistas del DJ); antes hay que pedir acceso y confirmar términos del conjunto [11.2]
+- [ ] feat(mix): reglas de mezcla por género en una tabla, con los valores actuales como respaldo y contrastadas con `recordings_report` [11.3]
+- [ ] docs(ml): conjunto de música libre (Free Music Archive filtrado por licencia de uso comercial) con la lista de pistas y licencias para demo y pruebas [11.4]
+- [ ] chore(ml): sesiones de recogida de datos del DJ: 20 a 30 mezclas buenas por género y 15 a 20 correcciones, con copia de seguridad tras cada sesión [11.5]
