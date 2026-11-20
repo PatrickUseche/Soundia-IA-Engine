@@ -15,6 +15,7 @@ from mixing.transition import (
     fit_bars_to_intro,
     VOCAL_TAIL_GAP_SECONDS,
     choose_fade_out,
+    MAX_EARLY_EXIT_SECONDS,
     choose_mix_out,
     choose_style_and_bars,
     eq_automation,
@@ -153,10 +154,33 @@ class ChooseMixOutTests(SimpleTestCase):
 
         self.assertEqual(choose_mix_out(pista, 30.0), 270.0)
 
-    def test_descarta_un_cue_demasiado_cerca_del_final(self):
-        pista = track(duration=300, cues=[0.0, 60.0, 285.0])  # 285 + 30 > 300
+    def test_descarta_un_cue_demasiado_cerca_del_final_y_no_salta_a_uno_de_mitad_de_pista(self):
+        pista = track(duration=300, cues=[0.0, 60.0, 285.0])  # 285 + 30 > 300; el de 60 s queda muy lejos del limite
 
-        self.assertEqual(choose_mix_out(pista, 30.0), 60.0)
+        # Antes devolvia 60: mezclaba a los 60 s de una cancion de 300 s y no la dejaba sonar.
+        self.assertEqual(choose_mix_out(pista, 30.0), 270.0)
+
+    def test_si_el_cue_de_salida_no_cabe_no_sale_al_principio_de_la_pista(self):
+        # Caso real (Plan B - Candy, 208 s): solo tiene el cue de inicio y el de salida (203 s); con una mezcla de 40 s
+        # el de salida ya no cabe (limite: 168 s) y el motor elegia el de inicio: la mezcla empezaba en el segundo 0.
+        pista = track(duration=208, cues=[0.0, 203.0])
+
+        self.assertEqual(choose_mix_out(pista, 40.0), 168.0)
+
+    def test_un_cue_cercano_al_limite_si_se_usa(self):
+        pista = track(duration=300, cues=[0.0, 60.0, 230.0])  # limite 270; 230 esta a 40 s del limite
+
+        self.assertEqual(choose_mix_out(pista, 30.0), 230.0)
+
+    def test_un_cue_justo_a_la_distancia_maxima_del_limite_todavia_se_usa(self):
+        pista = track(duration=300, cues=[0.0, 270.0 - MAX_EARLY_EXIT_SECONDS])
+
+        self.assertEqual(choose_mix_out(pista, 30.0), 270.0 - MAX_EARLY_EXIT_SECONDS)
+
+    def test_un_cue_algo_mas_lejos_que_la_distancia_maxima_no_se_usa(self):
+        pista = track(duration=300, cues=[0.0, 270.0 - MAX_EARLY_EXIT_SECONDS - 1.0])
+
+        self.assertEqual(choose_mix_out(pista, 30.0), 270.0)
 
     def test_sin_cues_aptos_usa_el_final_menos_la_duracion(self):
         pista = track(duration=300, cues=[])
@@ -175,6 +199,17 @@ class ChooseMixOutTests(SimpleTestCase):
 
 
 class PlanTransitionTests(SimpleTestCase):
+    def test_una_mezcla_larga_de_una_pista_con_pocos_cues_no_empieza_en_el_segundo_cero(self):
+        # Regresion: el Auto-DJ mezclaba "de la nada" a los pocos segundos de empezar una pista.
+        a = track(1, bpm=95.8, camelot='12B', duration=208.0, cues=[0.0, 203.0])
+        b = track(2, bpm=96.9, camelot='12B', duration=300.0)
+
+        plan = plan_transition(a, b)
+
+        self.assertEqual(plan.style, STYLE_BLEND)
+        self.assertGreater(plan.mix_out_at, a.duration - plan.seconds - MAX_EARLY_EXIT_SECONDS - 1.0)
+        self.assertLessEqual(plan.mix_out_at + plan.seconds, a.duration + 0.5)
+
     def test_pareja_ideal_da_una_mezcla_larga_de_16_compases(self):
         plan = plan_transition(track(1, bpm=128), track(2, bpm=128))
 
