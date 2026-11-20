@@ -58,6 +58,24 @@ La tabla final da, por género: pistas, acierto exacto (4 %), acierto aceptando 
 error en % y errores de lectura. Con `downbeat` en el CSV añade el acierto del primer tiempo del compás y del pulso.
 Sirve para anotar la cifra por género que pide el criterio de éxito.
 
+**Primera medición real (2026-11-20, conjunto Salsa):** 124 fragmentos de 30 s, con el BPM de referencia calculado como la mediana de los intervalos entre los pulsos anotados.
+
+| | Tempo exacto (4 %) | Con octavas | Error mediano |
+|---|---|---|---|
+| Antes (prior de librosa, centrada en 120 BPM) | 19 % | 38 % | 32,8 % |
+| Después [11.6] (prior de tope plano 78-180) | 37 % | 64 % | 29,3 % |
+
+Qué se encontró: 53 de 124 pistas salían a 4/3 de su tempo (90 anotado, 120 detectado) porque la prior por defecto atraía
+el resultado hacia 120. Una prior totalmente plana lo arreglaba para la salsa pero rompía los 140 BPM (salían a 70), así
+que se eligió una de tope plano, comparada contra pulsos sintéticos de 70 a 180 BPM. Antes de dar la referencia por buena
+se comprobó que el tempo anotado sí está en el audio (autocorrelación de los ataques). Lo que queda: 23 pistas a 4/3, 24
+sin relación simple y 19 con referencia por debajo de 70 BPM (el motor las da al doble). Pendiente: confirmar a oído unas
+pistas y repetir con las 49 pistas del DJ [11.7].
+
+Los datos del conjunto (CC BY 4.0, <https://zenodo.org/records/13120822>) están en `C:\SoundIA-datosalidacion\salsa` y no
+van a git. Cita: Gómez-Marín, D., Ospina-Caicedo, R., Díaz-Cely, J., Paz, J., Jordà, S. y Herrera, P. (2024). *Salsa, a
+Dataset for Beat Estimation in Salsa Music*. TISMIR 7(1), 264-273. DOI 10.5334/tismir.183.
+
 ### B. Reglas de arranque mejores (sin entrenar)
 
 El modelo parte de las reglas y se desplaza hacia el DJ. Mientras el DJ tiene menos de 20 mezclas buenas, **las reglas son
