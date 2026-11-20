@@ -13,6 +13,7 @@ from .memory import release_memory
 from .models import Track
 from .separator import is_available
 from .services import UnsupportedAudioError, analyze_file
+from .storage import safe_audio_name
 from .vocal_jobs import request_vocal_analysis
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,13 @@ def analyze_track(request):
     )
     # El analisis ya leyo el archivo hasta el final: se rebobina para guardarlo completo.
     upload.seek(0)
-    track.audio_file.save(upload.name, upload, save=True)
+    try:
+        track.audio_file.save(safe_audio_name(upload.name), upload, save=True)
+    except Exception as error:  # noqa: BLE001 - el almacenamiento externo (S3) puede fallar de muchas formas
+        # Sin audio la pista no sirve: no se deja a medias en la biblioteca y se le dice al usuario que paso.
+        logger.exception('No se pudo guardar el audio de %r', upload.name)
+        track.delete()
+        return JsonResponse({'error': f'No se pudo guardar el audio en el almacenamiento: {error}'}, status=502)
     # La voz del final se analiza aparte, en segundo plano: tarda minutos.
     request_vocal_analysis(track)
     return JsonResponse(track_to_dict(track), status=201)
