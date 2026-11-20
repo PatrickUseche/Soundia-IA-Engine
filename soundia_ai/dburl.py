@@ -3,28 +3,28 @@ from urllib.parse import parse_qsl, unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 
-ESQUEMAS = ('postgres', 'postgresql')
+SCHEMAS = ('postgres', 'postgresql')
 
 
 def database_from_url(url):
-    partes = urlparse(url)
-    if partes.scheme not in ESQUEMAS:
+    name_parts = urlparse(url)
+    if name_parts.scheme not in SCHEMAS:
         raise ImproperlyConfigured(
-            f"DATABASE_URL debe empezar por postgresql:// (recibido: '{partes.scheme}://').")
-    nombre = unquote(partes.path.lstrip('/'))
-    if not partes.hostname or not nombre:
+            f"DATABASE_URL debe empezar por postgresql:// (recibido: '{name_parts.scheme}://').")
+    file_name = unquote(name_parts.path.lstrip('/'))
+    if not name_parts.hostname or not file_name:
         raise ImproperlyConfigured('DATABASE_URL debe incluir el servidor y el nombre de la base de datos.')
 
-    configuracion = {
+    settings_obj = {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': nombre,
-        'USER': unquote(partes.username or ''),
-        'PASSWORD': unquote(partes.password or ''),
-        'HOST': partes.hostname,
-        'PORT': str(partes.port or ''),
+        'NAME': file_name,
+        'USER': unquote(name_parts.username or ''),
+        'PASSWORD': unquote(name_parts.password or ''),
+        'HOST': name_parts.hostname,
+        'PORT': str(name_parts.port or ''),
     }
     # Opciones de la conexion (por ejemplo sslmode=require, que Neon exige).
-    opciones = dict(parse_qsl(partes.query))
-    if opciones:
-        configuracion['OPTIONS'] = opciones
-    return configuracion
+    command_options = dict(parse_qsl(name_parts.query))
+    if command_options:
+        settings_obj['OPTIONS'] = command_options
+    return settings_obj

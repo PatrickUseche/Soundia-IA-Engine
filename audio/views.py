@@ -82,8 +82,8 @@ def analyze_track(request):
     if upload is None:
         return JsonResponse({'error': "Falta el archivo de audio en el campo 'file'."}, status=400)
     if upload.size > settings.AUDIO_MAX_UPLOAD_BYTES:
-        limite_mb = settings.AUDIO_MAX_UPLOAD_BYTES // (1024 * 1024)
-        return JsonResponse({'error': f'El archivo supera el maximo de {limite_mb} MB.'}, status=413)
+        limit_mb = settings.AUDIO_MAX_UPLOAD_BYTES // (1024 * 1024)
+        return JsonResponse({'error': f'El archivo supera el maximo de {limit_mb} MB.'}, status=413)
 
     try:
         genre = normalize_genre(request.POST.get('genre', ''))

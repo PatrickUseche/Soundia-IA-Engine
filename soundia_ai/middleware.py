@@ -22,7 +22,7 @@ class ServiceTokenMiddleware:
         token = settings.SERVICE_TOKEN
         # Sin SERVICE_TOKEN el motor responde a todos (red privada o desarrollo).
         if token and request.path not in PUBLIC_PATHS:
-            enviada = request.META.get(HEADER, '')
-            if not hmac.compare_digest(enviada.encode(), token.encode()):
+            sent_key = request.META.get(HEADER, '')
+            if not hmac.compare_digest(sent_key.encode(), token.encode()):
                 return JsonResponse({'error': 'Clave de servicio invalida o ausente.'}, status=401)
         return self.get_response(request)

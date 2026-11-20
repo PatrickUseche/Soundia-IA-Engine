@@ -36,29 +36,29 @@ class SafeAudioNameTests(SimpleTestCase):
         self.assertEqual(safe_audio_name('cancion-1_final.wav'), 'cancion-1_final.wav')
 
     def test_el_resultado_solo_tiene_caracteres_seguros(self):
-        for nombre in ('ÁÉÍÓÚ áéíóú ñÑ üÜ.mp3', '日本語の曲.mp3', 'a/b\\c:d*e?f"g<h>i|j.mp3', '../../etc/passwd', 'canción 😀.ogg'):
-            with self.subTest(nombre=nombre):
-                self.assertRegex(safe_audio_name(nombre), SEGURO)
+        for file_name in ('ÁÉÍÓÚ áéíóú ñÑ üÜ.mp3', '日本語の曲.mp3', 'a/b\\c:d*e?f"g<h>i|j.mp3', '../../etc/passwd', 'canción 😀.ogg'):
+            with self.subTest(file_name=file_name):
+                self.assertRegex(safe_audio_name(file_name), SEGURO)
 
     def test_no_deja_pasar_rutas_ni_puntos_al_principio(self):
-        resultado = safe_audio_name('../../etc/passwd.mp3')
+        outcome = safe_audio_name('../../etc/passwd.mp3')
 
-        self.assertNotIn('/', resultado)
-        self.assertFalse(resultado.startswith('.'))
+        self.assertNotIn('/', outcome)
+        self.assertFalse(outcome.startswith('.'))
 
     def test_un_nombre_largo_se_acorta_sin_perder_la_extension(self):
-        resultado = safe_audio_name('a' * 500 + '.flac')
+        outcome = safe_audio_name('a' * 500 + '.flac')
 
-        self.assertLessEqual(len(resultado), MAX_AUDIO_NAME_LENGTH)
-        self.assertTrue(resultado.endswith('.flac'))
+        self.assertLessEqual(len(outcome), MAX_AUDIO_NAME_LENGTH)
+        self.assertTrue(outcome.endswith('.flac'))
 
     def test_si_no_queda_nada_usa_un_nombre_por_defecto(self):
         self.assertEqual(safe_audio_name('日本語.mp3'), 'audio.mp3')
         self.assertEqual(safe_audio_name(''), 'audio')
 
 
-def _wav(nombre):
-    return SimpleUploadedFile(nombre, to_wav_bytes(click_track(120, 10, sr=SR, amplitude=0.5)), content_type='audio/wav')
+def _wav(file_name):
+    return SimpleUploadedFile(file_name, to_wav_bytes(click_track(120, 10, sr=SR, amplitude=0.5)), content_type='audio/wav')
 
 
 class AnalyzeStoresSafeNameTests(TempMediaMixin, TestCase):
@@ -66,16 +66,16 @@ class AnalyzeStoresSafeNameTests(TempMediaMixin, TestCase):
         respuesta = self.client.post('/api/audio/analyze', {'file': _wav('Por Qué Sigues con Él (Remix).wav')})
 
         self.assertEqual(respuesta.status_code, 201)
-        pista = Track.objects.get()
-        self.assertEqual(pista.title, 'Por Qué Sigues con Él (Remix).wav')
-        self.assertRegex(pista.audio_file.name.split('/')[-1], SEGURO)
-        self.assertIn('Por_Que_Sigues_con_El_Remix', pista.audio_file.name)
+        track_obj = Track.objects.get()
+        self.assertEqual(track_obj.title, 'Por Qué Sigues con Él (Remix).wav')
+        self.assertRegex(track_obj.audio_file.name.split('/')[-1], SEGURO)
+        self.assertIn('Por_Que_Sigues_con_El_Remix', track_obj.audio_file.name)
 
     def test_la_pista_se_puede_volver_a_descargar_con_su_nombre_seguro(self):
         self.client.post('/api/audio/analyze', {'file': _wav('Qué tal.wav')})
-        pista = Track.objects.get()
+        track_obj = Track.objects.get()
 
-        respuesta = self.client.get(f'/api/audio/tracks/{pista.id}/file')
+        respuesta = self.client.get(f'/api/audio/tracks/{track_obj.id}/file')
 
         self.assertEqual(respuesta.status_code, 200)
 

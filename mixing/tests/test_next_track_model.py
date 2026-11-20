@@ -14,13 +14,13 @@ def info(bpm=120.0, camelot='8B', energy=0.5, genre=''):
     return TrackInfo(id=1, title='t', bpm=bpm, camelot=camelot, energy=energy, genre=genre)
 
 
-def pista(titulo, bpm=120.0, camelot='8B', energy=0.5, genre=''):
+def track_obj(titulo, bpm=120.0, camelot='8B', energy=0.5, genre=''):
     return Track.objects.create(title=titulo, duration=300.0, bpm=bpm, key='C major', camelot=camelot,
                                 energy=energy, cue_points=[0.0, 60.0, 270.0], genre=genre)
 
 
-def diferencias(filas):
-    return np.array(filas, dtype=float)
+def diferencias(csv_rows):
+    return np.array(csv_rows, dtype=float)
 
 
 class FeaturesTests(SimpleTestCase):
@@ -28,7 +28,7 @@ class FeaturesTests(SimpleTestCase):
         rasgos = pair_features(info(), info(bpm=124, camelot='9B', energy=0.8, genre='salsa'))
 
         self.assertEqual(len(rasgos), len(FEATURES))
-        self.assertTrue(all(0.0 <= valor <= 1.0 for valor in rasgos))
+        self.assertTrue(all(0.0 <= raw_value <= 1.0 for raw_value in rasgos))
 
     def test_si_la_energia_sube_se_nota_y_si_baja_no(self):
         sube = pair_features(info(energy=0.4), info(energy=0.7))
@@ -68,12 +68,12 @@ class FitTests(SimpleTestCase):
     def test_el_bono_se_centra_en_las_candidatas_y_esta_acotado(self):
         pesos = np.array([5.0, 0.0, 0.0, 0.0, 0.0])
 
-        valores = bonuses(pesos, [[1.0, 0, 0, 0, 0], [0.0, 0, 0, 0, 0], [0.5, 0, 0, 0, 0]])
+        field_values = bonuses(pesos, [[1.0, 0, 0, 0, 0], [0.0, 0, 0, 0, 0], [0.5, 0, 0, 0, 0]])
 
-        self.assertAlmostEqual(sum(valores), 0.0, delta=0.4)
-        self.assertTrue(all(-MAX_BONUS <= valor <= MAX_BONUS for valor in valores))
-        self.assertGreater(valores[0], valores[2])
-        self.assertGreater(valores[2], valores[1])
+        self.assertAlmostEqual(sum(field_values), 0.0, delta=0.4)
+        self.assertTrue(all(-MAX_BONUS <= raw_value <= MAX_BONUS for raw_value in field_values))
+        self.assertGreater(field_values[0], field_values[2])
+        self.assertGreater(field_values[2], field_values[1])
 
     def test_sin_candidatas_no_hay_bonos(self):
         self.assertEqual(bonuses(np.zeros(len(FEATURES)), []), [])
@@ -81,57 +81,57 @@ class FitTests(SimpleTestCase):
 
 class EvaluationTests(SimpleTestCase):
     def test_con_pocas_correcciones_nunca_gana(self):
-        resultado = evaluate(diferencias([[0.0, 0.0, 0.0, 0.3, 0.0]] * (MIN_CORRECTIONS - 1)))
+        outcome = evaluate(diferencias([[0.0, 0.0, 0.0, 0.3, 0.0]] * (MIN_CORRECTIONS - 1)))
 
-        self.assertFalse(resultado['wins'])
+        self.assertFalse(outcome['wins'])
 
     def test_un_dj_consistente_hace_ganar_al_modelo(self):
-        resultado = evaluate(diferencias([[-0.2, 0.0, -0.3, 0.3, 0.0]] * (MIN_CORRECTIONS + 5)))
+        outcome = evaluate(diferencias([[-0.2, 0.0, -0.3, 0.3, 0.0]] * (MIN_CORRECTIONS + 5)))
 
-        self.assertTrue(resultado['wins'])
-        self.assertEqual(resultado['accuracy'], 1.0)
-        self.assertEqual(resultado['rulesAccuracy'], 0.0)
+        self.assertTrue(outcome['wins'])
+        self.assertEqual(outcome['accuracy'], 1.0)
+        self.assertEqual(outcome['rulesAccuracy'], 0.0)
 
     def test_un_dj_que_se_contradice_no_hace_ganar_al_modelo(self):
         a, b = [0.0, 0.0, 0.0, 0.3, 0.0], [0.0, 0.0, 0.0, -0.3, 0.0]
-        resultado = evaluate(diferencias([a, b] * (MIN_CORRECTIONS + 5)))
+        outcome = evaluate(diferencias([a, b] * (MIN_CORRECTIONS + 5)))
 
-        self.assertFalse(resultado['wins'])
+        self.assertFalse(outcome['wins'])
 
     def test_sin_datos_no_hay_precision(self):
-        resultado = evaluate(np.zeros((0, len(FEATURES))))
+        outcome = evaluate(np.zeros((0, len(FEATURES))))
 
-        self.assertIsNone(resultado['accuracy'])
-        self.assertFalse(resultado['wins'])
+        self.assertIsNone(outcome['accuracy'])
+        self.assertFalse(outcome['wins'])
 
 
 class RecordChoiceTests(TestCase):
     def setUp(self):
         reset_cache()
         reset_style_cache()
-        self.actual = pista('actual')
-        self.elegida = pista('elegida', camelot='9B', energy=0.8)
-        self.propuesta = pista('propuesta')
+        self.current_value = track_obj('actual')
+        self.chosen_item = track_obj('elegida', camelot='9B', energy=0.8)
+        self.propuesta = track_obj('propuesta')
 
     def test_guarda_los_rasgos_de_la_elegida_y_de_la_propuesta(self):
-        eleccion = record_choice(self.actual, self.elegida, self.propuesta)
+        eleccion = record_choice(self.current_value, self.chosen_item, self.propuesta)
 
         self.assertEqual(len(eleccion.chosen_features), len(FEATURES))
         self.assertEqual(len(eleccion.rejected_features), len(FEATURES))
         self.assertGreater(eleccion.chosen_features[FEATURES.index('energyUp')], 0.0)
 
     def test_aceptar_la_propuesta_no_da_un_par_pero_se_cuenta(self):
-        eleccion = record_choice(self.actual, self.propuesta, self.propuesta)
+        eleccion = record_choice(self.current_value, self.propuesta, self.propuesta)
 
         self.assertIsNone(eleccion.rejected_features)
         self.assertEqual(style_model_status()['nextTrack']['choices'], 1)
         self.assertEqual(style_model_status()['nextTrack']['corrections'], 0)
 
     def test_sin_propuesta_tampoco_hay_par(self):
-        self.assertIsNone(record_choice(self.actual, self.elegida).rejected_features)
+        self.assertIsNone(record_choice(self.current_value, self.chosen_item).rejected_features)
 
     def test_borrar_las_pistas_no_borra_lo_aprendido(self):
-        record_choice(self.actual, self.elegida, self.propuesta)
+        record_choice(self.current_value, self.chosen_item, self.propuesta)
 
         Track.objects.all().delete()
 
@@ -144,15 +144,15 @@ class ChoicesRouteTests(TestCase):
     def setUp(self):
         reset_cache()
         reset_style_cache()
-        self.actual = pista('actual')
-        self.elegida = pista('elegida', camelot='9B', energy=0.8)
-        self.propuesta = pista('propuesta')
+        self.current_value = track_obj('actual')
+        self.chosen_item = track_obj('elegida', camelot='9B', energy=0.8)
+        self.propuesta = track_obj('propuesta')
 
     def enviar(self, cuerpo):
         return self.client.post('/api/mix/choices', cuerpo, content_type='application/json')
 
     def test_guarda_la_eleccion_y_devuelve_las_cuentas(self):
-        respuesta = self.enviar({'fromTrackId': self.actual.id, 'chosenTrackId': self.elegida.id,
+        respuesta = self.enviar({'fromTrackId': self.current_value.id, 'chosenTrackId': self.chosen_item.id,
                                  'recommendedTrackId': self.propuesta.id})
 
         self.assertEqual(respuesta.status_code, 201)
@@ -160,19 +160,19 @@ class ChoicesRouteTests(TestCase):
         self.assertEqual(respuesta.json()['required'], MIN_CORRECTIONS)
 
     def test_la_propuesta_es_opcional(self):
-        respuesta = self.enviar({'fromTrackId': self.actual.id, 'chosenTrackId': self.elegida.id})
+        respuesta = self.enviar({'fromTrackId': self.current_value.id, 'chosenTrackId': self.chosen_item.id})
 
         self.assertEqual(respuesta.status_code, 201)
         self.assertEqual(respuesta.json()['corrections'], 0)
 
     def test_rechaza_elegir_la_misma_pista(self):
-        self.assertEqual(self.enviar({'fromTrackId': self.actual.id, 'chosenTrackId': self.actual.id}).status_code, 400)
+        self.assertEqual(self.enviar({'fromTrackId': self.current_value.id, 'chosenTrackId': self.current_value.id}).status_code, 400)
 
     def test_una_pista_que_no_existe_da_404(self):
-        self.assertEqual(self.enviar({'fromTrackId': self.actual.id, 'chosenTrackId': 9999}).status_code, 404)
+        self.assertEqual(self.enviar({'fromTrackId': self.current_value.id, 'chosenTrackId': 9999}).status_code, 404)
 
     def test_faltan_campos_da_400(self):
-        self.assertEqual(self.enviar({'fromTrackId': self.actual.id}).status_code, 400)
+        self.assertEqual(self.enviar({'fromTrackId': self.current_value.id}).status_code, 400)
 
     def test_solo_acepta_post(self):
         self.assertEqual(self.client.get('/api/mix/choices').status_code, 405)
@@ -184,19 +184,19 @@ class UseInRankingTests(TestCase):
     def setUp(self):
         reset_cache()
         reset_style_cache()
-        self.actual = pista('actual', energy=0.5)
-        self.compatible = pista('compatible', energy=0.5)  # puntuacion 1.0
-        self.subida = pista('sube la energia', camelot='9B', energy=0.8)  # puntuacion ~0.875
+        self.current_value = track_obj('actual', energy=0.5)
+        self.compatible = track_obj('compatible', energy=0.5)  # puntuacion 1.0
+        self.subida = track_obj('sube la energia', camelot='9B', energy=0.8)  # puntuacion ~0.875
 
     def candidatas(self):
-        respuesta = self.client.post('/api/mix/next', {'trackId': self.actual.id, 'limit': 2},
+        respuesta = self.client.post('/api/mix/next', {'trackId': self.current_value.id, 'limit': 2},
                                      content_type='application/json')
         self.assertEqual(respuesta.status_code, 200)
         return respuesta.json()
 
     def aprender(self, veces=MIN_CORRECTIONS + 5):
         for _ in range(veces):
-            record_choice(self.actual, self.subida, self.compatible)
+            record_choice(self.current_value, self.subida, self.compatible)
 
     def test_por_defecto_manda_la_regla(self):
         self.aprender()
@@ -246,9 +246,9 @@ class UseInRankingTests(TestCase):
     def test_el_limite_se_respeta_aunque_se_reordene_todo(self):
         self.aprender()
         set_enabled(True)
-        pista('otra', camelot='3A')
+        track_obj('otra', camelot='3A')
 
-        respuesta = self.client.post('/api/mix/next', {'trackId': self.actual.id, 'limit': 1},
+        respuesta = self.client.post('/api/mix/next', {'trackId': self.current_value.id, 'limit': 1},
                                      content_type='application/json')
 
         self.assertEqual(len(respuesta.json()['candidates']), 1)

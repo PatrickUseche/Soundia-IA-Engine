@@ -25,17 +25,17 @@ def cargar(**entorno):
     base = {k: v for k, v in os.environ.items() if k in ('SYSTEMROOT', 'PATH', 'PYTHONPATH', 'TEMP', 'TMP')}
     base['DJANGO_SETTINGS_MODULE'] = 'soundia_ai.settings'
     base.update(entorno)
-    resultado = subprocess.run(
+    outcome = subprocess.run(
         [sys.executable, '-I', '-c', "import sys; sys.path.insert(0, %r); %s" % (str(PROYECTO), _PROGRAMA)],
         capture_output=True, text=True, env=base, cwd=str(PROYECTO),
     )
-    return resultado
+    return outcome
 
 
 def ajustes(**entorno):
-    resultado = cargar(**entorno)
-    assert resultado.returncode == 0, resultado.stderr
-    return json.loads(resultado.stdout.strip().splitlines()[-1])
+    outcome = cargar(**entorno)
+    assert outcome.returncode == 0, outcome.stderr
+    return json.loads(outcome.stdout.strip().splitlines()[-1])
 
 
 class DebugYClaveTests(SimpleTestCase):
@@ -46,23 +46,23 @@ class DebugYClaveTests(SimpleTestCase):
         self.assertIn('desarrollo', a['SECRET_KEY'])
 
     def test_debug_se_puede_apagar_con_la_variable(self):
-        for valor in ('False', 'false', '0', 'no'):
-            with self.subTest(valor=valor):
-                self.assertFalse(ajustes(DJANGO_DEBUG=valor, DJANGO_SECRET_KEY='x')['DEBUG'])
+        for raw_value in ('False', 'false', '0', 'no'):
+            with self.subTest(raw_value=raw_value):
+                self.assertFalse(ajustes(DJANGO_DEBUG=raw_value, DJANGO_SECRET_KEY='x')['DEBUG'])
 
     def test_debug_acepta_varias_formas_de_verdadero(self):
-        for valor in ('True', 'true', '1', 'yes'):
-            with self.subTest(valor=valor):
-                self.assertTrue(ajustes(DJANGO_DEBUG=valor)['DEBUG'])
+        for raw_value in ('True', 'true', '1', 'yes'):
+            with self.subTest(raw_value=raw_value):
+                self.assertTrue(ajustes(DJANGO_DEBUG=raw_value)['DEBUG'])
 
     def test_la_clave_secreta_sale_del_entorno(self):
         self.assertEqual(ajustes(DJANGO_SECRET_KEY='clave-de-prueba')['SECRET_KEY'], 'clave-de-prueba')
 
     def test_sin_debug_la_clave_secreta_es_obligatoria(self):
-        resultado = cargar(DJANGO_DEBUG='False')
+        outcome = cargar(DJANGO_DEBUG='False')
 
-        self.assertNotEqual(resultado.returncode, 0)
-        self.assertIn('DJANGO_SECRET_KEY', resultado.stderr)
+        self.assertNotEqual(outcome.returncode, 0)
+        self.assertIn('DJANGO_SECRET_KEY', outcome.stderr)
 
     def test_con_debug_apagado_y_clave_arranca(self):
         a = ajustes(DJANGO_DEBUG='False', DJANGO_SECRET_KEY='secreta')
@@ -115,10 +115,10 @@ class BaseDeDatosTests(SimpleTestCase):
         self.assertEqual(a['SQLITE'], 'soundia')
 
     def test_una_database_url_invalida_impide_arrancar(self):
-        resultado = cargar(DATABASE_URL='mysql://u:p@h/b')
+        outcome = cargar(DATABASE_URL='mysql://u:p@h/b')
 
-        self.assertNotEqual(resultado.returncode, 0)
-        self.assertIn('DATABASE_URL', resultado.stderr)
+        self.assertNotEqual(outcome.returncode, 0)
+        self.assertIn('DATABASE_URL', outcome.stderr)
 
 
 class AlmacenamientoTests(SimpleTestCase):
@@ -135,7 +135,7 @@ class AlmacenamientoTests(SimpleTestCase):
         for falta in ('S3_ENDPOINT_URL', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'):
             with self.subTest(falta=falta):
                 entorno = {k: v for k, v in self.S3.items() if k != falta}
-                resultado = cargar(**entorno)
+                outcome = cargar(**entorno)
 
-                self.assertNotEqual(resultado.returncode, 0)
-                self.assertIn(falta, resultado.stderr)
+                self.assertNotEqual(outcome.returncode, 0)
+                self.assertIn(falta, outcome.stderr)

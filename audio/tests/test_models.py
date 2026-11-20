@@ -8,12 +8,12 @@ from audio.tests.media import TempMediaMixin
 
 
 def crear_track(**cambios):
-    datos = dict(
+    payload_data = dict(
         title='cancion.wav', duration=180.0, bpm=128.0, key='C major', camelot='8B',
         energy=0.6, cue_points=[0.0, 32.5, 150.0],
     )
-    datos.update(cambios)
-    return Track(**datos)
+    payload_data.update(cambios)
+    return Track(**payload_data)
 
 
 class TrackModelTests(TestCase):
@@ -97,8 +97,8 @@ class TrackAudioFileTests(TempMediaMixin, TestCase):
         track.refresh_from_db()
         self.assertTrue(track.audio_file)
         self.assertTrue(track.audio_file.name.startswith('tracks/'))
-        with track.audio_file.open('rb') as archivo:
-            self.assertEqual(archivo.read(), b'RIFFdatos')
+        with track.audio_file.open('rb') as audio_path_name:
+            self.assertEqual(audio_path_name.read(), b'RIFFdatos')
 
     def test_dos_archivos_con_el_mismo_nombre_no_se_pisan(self):
         a, b = crear_track(), crear_track()
@@ -109,13 +109,13 @@ class TrackAudioFileTests(TempMediaMixin, TestCase):
         b.audio_file.save('tema.wav', ContentFile(b'BBBB'))
 
         self.assertNotEqual(a.audio_file.name, b.audio_file.name)
-        with a.audio_file.open('rb') as archivo:
-            self.assertEqual(archivo.read(), b'AAAA')
+        with a.audio_file.open('rb') as audio_path_name:
+            self.assertEqual(audio_path_name.read(), b'AAAA')
 
 
 class GridManualTests(TestCase):
     def test_por_defecto_la_rejilla_no_es_manual(self):
-        pista = Track.objects.create(
+        track_obj = Track.objects.create(
             title='x', duration=10.0, bpm=120.0, key='C major', camelot='8B', energy=0.5, cue_points=[0.0])
 
-        self.assertFalse(pista.grid_manual)
+        self.assertFalse(track_obj.grid_manual)

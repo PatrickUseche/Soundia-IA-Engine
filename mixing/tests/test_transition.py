@@ -80,10 +80,10 @@ class EqAutomationTests(SimpleTestCase):
 
     def test_todos_los_valores_estan_entre_0_y_1(self):
         for punto in eq_automation(24):
-            for valor in (punto.gain_a, punto.gain_b, punto.low_a, punto.low_b,
+            for raw_value in (punto.gain_a, punto.gain_b, punto.low_a, punto.low_b,
                           punto.mid_a, punto.mid_b, punto.high_a, punto.high_b):
-                self.assertGreaterEqual(valor, 0.0)
-                self.assertLessEqual(valor, 1.0)
+                self.assertGreaterEqual(raw_value, 0.0)
+                self.assertLessEqual(raw_value, 1.0)
 
     def test_un_paso_invalido_lanza_error(self):
         with self.assertRaises(ValueError):
@@ -124,24 +124,24 @@ class ChooseFadeOutTests(SimpleTestCase):
         self.assertEqual(choose_fade_out(track(duration=4), 5.0), 0.0)
 
     def test_si_la_voz_acaba_antes_del_final_el_fundido_empieza_justo_despues_de_la_ultima_frase(self):
-        pista = track(duration=300, vocal_last_end=280.0)
+        track_obj = track(duration=300, vocal_last_end=280.0)
 
-        self.assertEqual(choose_fade_out(pista, 5.0), 280.0 + VOCAL_TAIL_GAP_SECONDS)
+        self.assertEqual(choose_fade_out(track_obj, 5.0), 280.0 + VOCAL_TAIL_GAP_SECONDS)
 
     def test_si_la_voz_llega_hasta_el_final_no_hay_cola_instrumental_y_se_va_al_final(self):
-        pista = track(duration=300, vocal_last_end=298.0)
+        track_obj = track(duration=300, vocal_last_end=298.0)
 
-        self.assertEqual(choose_fade_out(pista, 5.0), 300 - 5.0 - FADE_END_MARGIN_SECONDS)
+        self.assertEqual(choose_fade_out(track_obj, 5.0), 300 - 5.0 - FADE_END_MARGIN_SECONDS)
 
     def test_nunca_empieza_despues_del_ultimo_punto_en_que_cabe_el_fundido(self):
-        pista = track(duration=300, vocal_last_end=293.0)  # el fundido empezaria en 294, pero el ultimo punto que cabe es 293
+        track_obj = track(duration=300, vocal_last_end=293.0)  # el fundido empezaria en 294, pero el ultimo punto que cabe es 293
 
-        self.assertEqual(choose_fade_out(pista, 5.0), 300 - 5.0 - FADE_END_MARGIN_SECONDS)
+        self.assertEqual(choose_fade_out(track_obj, 5.0), 300 - 5.0 - FADE_END_MARGIN_SECONDS)
 
     def test_el_adelanto_aprendido_se_resta_del_punto_elegido(self):
-        pista = track(duration=300, vocal_last_end=280.0)
+        track_obj = track(duration=300, vocal_last_end=280.0)
 
-        self.assertEqual(choose_fade_out(pista, 5.0, advance=10.0), 281.0 - 10.0)
+        self.assertEqual(choose_fade_out(track_obj, 5.0, advance=10.0), 281.0 - 10.0)
         self.assertEqual(choose_fade_out(track(duration=200), 5.0, advance=10.0), 200 - 5.0 - FADE_END_MARGIN_SECONDS - 10.0)
 
     def test_un_adelanto_enorme_no_deja_el_punto_antes_del_inicio(self):
@@ -150,52 +150,52 @@ class ChooseFadeOutTests(SimpleTestCase):
 
 class ChooseMixOutTests(SimpleTestCase):
     def test_elige_el_ultimo_cue_en_el_que_cabe_la_transicion(self):
-        pista = track(duration=300, cues=[0.0, 60.0, 270.0])
+        track_obj = track(duration=300, cues=[0.0, 60.0, 270.0])
 
-        self.assertEqual(choose_mix_out(pista, 30.0), 270.0)
+        self.assertEqual(choose_mix_out(track_obj, 30.0), 270.0)
 
     def test_descarta_un_cue_demasiado_cerca_del_final_y_no_salta_a_uno_de_mitad_de_pista(self):
-        pista = track(duration=300, cues=[0.0, 60.0, 285.0])  # 285 + 30 > 300; el de 60 s queda muy lejos del limite
+        track_obj = track(duration=300, cues=[0.0, 60.0, 285.0])  # 285 + 30 > 300; el de 60 s queda muy lejos del limite
 
         # Antes devolvia 60: mezclaba a los 60 s de una cancion de 300 s y no la dejaba sonar.
-        self.assertEqual(choose_mix_out(pista, 30.0), 270.0)
+        self.assertEqual(choose_mix_out(track_obj, 30.0), 270.0)
 
     def test_si_el_cue_de_salida_no_cabe_no_sale_al_principio_de_la_pista(self):
         # Caso real (Plan B - Candy, 208 s): solo tiene el cue de inicio y el de salida (203 s); con una mezcla de 40 s
         # el de salida ya no cabe (limite: 168 s) y el motor elegia el de inicio: la mezcla empezaba en el segundo 0.
-        pista = track(duration=208, cues=[0.0, 203.0])
+        track_obj = track(duration=208, cues=[0.0, 203.0])
 
-        self.assertEqual(choose_mix_out(pista, 40.0), 168.0)
+        self.assertEqual(choose_mix_out(track_obj, 40.0), 168.0)
 
     def test_un_cue_cercano_al_limite_si_se_usa(self):
-        pista = track(duration=300, cues=[0.0, 60.0, 230.0])  # limite 270; 230 esta a 40 s del limite
+        track_obj = track(duration=300, cues=[0.0, 60.0, 230.0])  # limite 270; 230 esta a 40 s del limite
 
-        self.assertEqual(choose_mix_out(pista, 30.0), 230.0)
+        self.assertEqual(choose_mix_out(track_obj, 30.0), 230.0)
 
     def test_un_cue_justo_a_la_distancia_maxima_del_limite_todavia_se_usa(self):
-        pista = track(duration=300, cues=[0.0, 270.0 - MAX_EARLY_EXIT_SECONDS])
+        track_obj = track(duration=300, cues=[0.0, 270.0 - MAX_EARLY_EXIT_SECONDS])
 
-        self.assertEqual(choose_mix_out(pista, 30.0), 270.0 - MAX_EARLY_EXIT_SECONDS)
+        self.assertEqual(choose_mix_out(track_obj, 30.0), 270.0 - MAX_EARLY_EXIT_SECONDS)
 
     def test_un_cue_algo_mas_lejos_que_la_distancia_maxima_no_se_usa(self):
-        pista = track(duration=300, cues=[0.0, 270.0 - MAX_EARLY_EXIT_SECONDS - 1.0])
+        track_obj = track(duration=300, cues=[0.0, 270.0 - MAX_EARLY_EXIT_SECONDS - 1.0])
 
-        self.assertEqual(choose_mix_out(pista, 30.0), 270.0)
+        self.assertEqual(choose_mix_out(track_obj, 30.0), 270.0)
 
     def test_sin_cues_aptos_usa_el_final_menos_la_duracion(self):
-        pista = track(duration=300, cues=[])
+        track_obj = track(duration=300, cues=[])
 
-        self.assertEqual(choose_mix_out(pista, 30.0), 270.0)
+        self.assertEqual(choose_mix_out(track_obj, 30.0), 270.0)
 
     def test_tolera_unos_milisegundos_de_exceso(self):
-        pista = track(duration=300, cues=[0.0, 270.4])
+        track_obj = track(duration=300, cues=[0.0, 270.4])
 
-        self.assertEqual(choose_mix_out(pista, 30.0), 270.4)
+        self.assertEqual(choose_mix_out(track_obj, 30.0), 270.4)
 
     def test_una_pista_mas_corta_que_la_transicion_empieza_en_cero(self):
-        pista = track(duration=20, cues=[])
+        track_obj = track(duration=20, cues=[])
 
-        self.assertEqual(choose_mix_out(pista, 30.0), 0.0)
+        self.assertEqual(choose_mix_out(track_obj, 30.0), 0.0)
 
 
 class PlanTransitionTests(SimpleTestCase):

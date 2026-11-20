@@ -223,7 +223,7 @@ def mix_timing(request):
         from_id = _read_id(data, 'fromTrackId')
         to_id = _read_id(data, 'toTrackId')
         planned = _read_seconds(data, 'plannedMixOutAt')
-        actual = _read_seconds(data, 'actualMixOutAt')
+        current_value = _read_seconds(data, 'actualMixOutAt')
         if from_id == to_id:
             raise BadRequest('No se puede mezclar una pista consigo misma.')
         origin = _get_track(from_id)
@@ -233,7 +233,7 @@ def mix_timing(request):
     except NotFound as error:
         return JsonResponse({'error': str(error)}, status=404)
 
-    advance = record_mix_timing(origin, destination, planned, actual)
+    advance = record_mix_timing(origin, destination, planned, current_value)
     return JsonResponse({'samples': timing_count(), 'advanceSeconds': advance, 'learned': advance > 0}, status=201)
 
 

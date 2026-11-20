@@ -104,36 +104,36 @@ class PredictionTests(TestCase):
 
 class EvaluationTests(TestCase):
     def test_con_pocas_mezclas_nunca_gana(self):
-        resultado = evaluate([muestra(4) for _ in range(MIN_RECORDINGS - 1)])
+        outcome = evaluate([muestra(4) for _ in range(MIN_RECORDINGS - 1)])
 
-        self.assertFalse(resultado['bars']['wins'])
+        self.assertFalse(outcome['bars']['wins'])
 
     def test_un_dj_que_siempre_se_aparta_de_la_regla_hace_ganar_al_modelo(self):
-        resultado = evaluate([muestra(4) for _ in range(MIN_RECORDINGS + 10)])
+        outcome = evaluate([muestra(4) for _ in range(MIN_RECORDINGS + 10)])
 
-        self.assertTrue(resultado['bars']['wins'])
-        self.assertLess(resultado['bars']['modelError'], resultado['bars']['rulesError'])
+        self.assertTrue(outcome['bars']['wins'])
+        self.assertLess(outcome['bars']['modelError'], outcome['bars']['rulesError'])
 
     def test_un_dj_que_ya_sigue_la_regla_no_hace_ganar_al_modelo(self):
-        resultado = evaluate([muestra(16) for _ in range(MIN_RECORDINGS + 10)])
+        outcome = evaluate([muestra(16) for _ in range(MIN_RECORDINGS + 10)])
 
-        self.assertFalse(resultado['bars']['wins'])
-        self.assertEqual(resultado['bars']['rulesError'], 0.0)
+        self.assertFalse(outcome['bars']['wins'])
+        self.assertEqual(outcome['bars']['rulesError'], 0.0)
 
     def test_cada_objetivo_se_decide_por_separado(self):
         # Los compases siguen la regla, pero el cambio de graves es siempre a 0.3 en vez de a 0.5.
-        resultado = evaluate([muestra(16, swap=0.3) for _ in range(MIN_RECORDINGS + 10)])
+        outcome = evaluate([muestra(16, swap=0.3) for _ in range(MIN_RECORDINGS + 10)])
 
-        self.assertFalse(resultado['bars']['wins'])
-        self.assertTrue(resultado['bassSwap']['wins'])
+        self.assertFalse(outcome['bars']['wins'])
+        self.assertTrue(outcome['bassSwap']['wins'])
 
     def test_una_mezcla_sin_datos_utiles_no_cuenta(self):
         vacia = Sample(context=CERCA, bars_log2=None, bass_swap=None)
 
-        resultado = evaluate([vacia] * 50)
+        outcome = evaluate([vacia] * 50)
 
-        self.assertEqual(resultado['bars']['evaluated'], 0)
-        self.assertFalse(resultado['bars']['wins'])
+        self.assertEqual(outcome['bars']['evaluated'], 0)
+        self.assertFalse(outcome['bars']['wins'])
 
 
 class PersistenceTests(TestCase):
@@ -161,7 +161,7 @@ class PersistenceTests(TestCase):
         estado = style_model_status()
 
         self.assertEqual(
-            {clave: valor for clave, valor in estado.items() if clave != 'nextTrack'},
+            {column_key: raw_value for column_key, raw_value in estado.items() if column_key != 'nextTrack'},
             {'goodRecordings': 1, 'required': MIN_RECORDINGS, 'ready': False, 'enabled': False})
 
     def test_el_estado_con_suficientes_mezclas_incluye_la_evaluacion(self):
@@ -186,7 +186,7 @@ class PersistenceTests(TestCase):
 
 
 
-def pistas():
+def track_list():
     a = Track.objects.create(title='A', duration=300.0, bpm=120.0, key='C major', camelot='8B', energy=0.5,
                              cue_points=[0.0, 60.0, 270.0], genre='salsa')
     b = Track.objects.create(title='B', duration=240.0, bpm=124.0, key='G major', camelot='9B', energy=0.7,
@@ -199,7 +199,7 @@ class UseInPlanTests(TestCase):
 
     def setUp(self):
         reset_cache()
-        self.a, self.b = pistas()
+        self.a, self.b = track_list()
 
     def aprender(self, mezclas=MIN_RECORDINGS, overlap=16.0):
         # La regla para A -> B (tonalidad vecina, ajuste del 3 %) son 16 compases; estas mezclas son de 8.
@@ -267,7 +267,7 @@ class UseInPlanTests(TestCase):
 
         self.assertTrue(plan['learnedBassSwap'])
         graves = [p['lowA'] for p in plan['automation']]
-        primer_corte = next(i for i, valor in enumerate(graves) if valor == 0.0)
+        primer_corte = next(i for i, raw_value in enumerate(graves) if raw_value == 0.0)
         self.assertLess(primer_corte / (len(graves) - 1), 0.5)
 
     def test_la_huella_detecta_mezclas_nuevas(self):

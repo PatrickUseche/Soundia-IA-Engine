@@ -28,11 +28,11 @@ class RegistroDeErroresTests(TestCase):
 
     def test_un_fallo_dentro_de_analyze_deja_la_traza_en_el_registro(self):
         self.client.raise_request_exception = False
-        archivo = SimpleUploadedFile('tema.wav', b'no importa', content_type='audio/wav')
+        audio_path_name = SimpleUploadedFile('tema.wav', b'no importa', content_type='audio/wav')
 
         with mock.patch('audio.views.analyze_file', side_effect=RuntimeError('fallo de prueba')):
             with self.assertLogs('django.request', level='ERROR') as registro:
-                respuesta = self.client.post('/api/audio/analyze', {'file': archivo})
+                respuesta = self.client.post('/api/audio/analyze', {'file': audio_path_name})
 
         self.assertEqual(respuesta.status_code, 500)
         texto = '\n'.join(registro.output)

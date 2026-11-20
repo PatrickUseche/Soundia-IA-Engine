@@ -15,26 +15,26 @@ from audio.vocal_analysis import VocalResult
 
 
 def crear_pista(con_audio=True, **cambios):
-    datos = dict(title='tema.wav', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.6)
-    datos.update(cambios)
-    pista = Track.objects.create(**datos)
+    payload_data = dict(title='tema.wav', duration=200.0, bpm=128.0, key='C major', camelot='8B', energy=0.6)
+    payload_data.update(cambios)
+    track_obj = Track.objects.create(**payload_data)
     if con_audio:
-        pista.audio_file.save('tema.wav', ContentFile(b'RIFF'), save=True)
-    return pista
+        track_obj.audio_file.save('tema.wav', ContentFile(b'RIFF'), save=True)
+    return track_obj
 
 
 class AnalyzeInSubprocessTests(SimpleTestCase):
     def ejecutar(self, returncode=0, stdout='', stderr='', excepcion=None):
-        resultado = subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
-        with mock.patch.object(vocal_jobs.subprocess, 'run', side_effect=excepcion, return_value=resultado) as lanzar:
+        outcome = subprocess.CompletedProcess(args=[], returncode=returncode, stdout=stdout, stderr=stderr)
+        with mock.patch.object(vocal_jobs.subprocess, 'run', side_effect=excepcion, return_value=outcome) as lanzar:
             return vocal_jobs.analyze_in_subprocess('/audio/tema.mp3', 200.0), lanzar
 
     def test_devuelve_el_resultado_que_imprime_el_subproceso(self):
         salida = 'ruido de librerias\n' + json.dumps({'window_start': 140.0, 'last_end': 188.5}) + '\n'
 
-        resultado, _ = self.ejecutar(stdout=salida)
+        outcome, _ = self.ejecutar(stdout=salida)
 
-        self.assertEqual(resultado, VocalResult(window_start=140.0, last_end=188.5))
+        self.assertEqual(outcome, VocalResult(window_start=140.0, last_end=188.5))
 
     def test_lee_tambien_donde_empieza_la_voz_y_funciona_sin_ese_dato(self):
         completo, _ = self.ejecutar(
@@ -45,9 +45,9 @@ class AnalyzeInSubprocessTests(SimpleTestCase):
         self.assertIsNone(antiguo.first_start)
 
     def test_una_pista_sin_voz_devuelve_none(self):
-        resultado, _ = self.ejecutar(stdout=json.dumps({'window_start': 140.0, 'last_end': None}))
+        outcome, _ = self.ejecutar(stdout=json.dumps({'window_start': 140.0, 'last_end': None}))
 
-        self.assertIsNone(resultado.last_end)
+        self.assertIsNone(outcome.last_end)
 
     def test_lanza_el_modulo_del_trabajador_con_el_python_actual_la_ruta_y_la_duracion(self):
         _, lanzar = self.ejecutar(stdout=json.dumps({'window_start': 0.0, 'last_end': None}))
@@ -75,79 +75,79 @@ class AnalyzeInSubprocessTests(SimpleTestCase):
 
 class RunVocalAnalysisTests(TempMediaMixin, TestCase):
     def test_guarda_hasta_donde_llega_la_voz_y_marca_la_pista_como_analizada(self):
-        pista = crear_pista()
+        track_obj = crear_pista()
         analizador = mock.Mock(return_value=VocalResult(window_start=140.0, last_end=188.5))
 
-        vocal_jobs.run_vocal_analysis(pista.id, analyzer=analizador)
+        vocal_jobs.run_vocal_analysis(track_obj.id, analyzer=analizador)
 
-        pista.refresh_from_db()
-        self.assertEqual((pista.vocal_status, pista.vocal_last_end), ('done', 188.5))
-        analizador.assert_called_once_with(pista.audio_file.path, 200.0)
+        track_obj.refresh_from_db()
+        self.assertEqual((track_obj.vocal_status, track_obj.vocal_last_end), ('done', 188.5))
+        analizador.assert_called_once_with(track_obj.audio_file.path, 200.0)
 
     def test_guarda_tambien_donde_empieza_la_voz(self):
-        pista = crear_pista()
+        track_obj = crear_pista()
 
         vocal_jobs.run_vocal_analysis(
-            pista.id, analyzer=lambda *args: VocalResult(window_start=140.0, last_end=188.5, first_start=12.5))
+            track_obj.id, analyzer=lambda *args: VocalResult(window_start=140.0, last_end=188.5, first_start=12.5))
 
-        pista.refresh_from_db()
-        self.assertEqual((pista.vocal_last_end, pista.vocal_first_start), (188.5, 12.5))
+        track_obj.refresh_from_db()
+        self.assertEqual((track_obj.vocal_last_end, track_obj.vocal_first_start), (188.5, 12.5))
 
     def test_si_el_analisis_falla_se_borran_el_final_y_el_inicio(self):
-        pista = crear_pista(vocal_last_end=150.0, vocal_first_start=10.0)
+        track_obj = crear_pista(vocal_last_end=150.0, vocal_first_start=10.0)
 
         def analizador(*args):
             raise RuntimeError('boom')
 
-        vocal_jobs.run_vocal_analysis(pista.id, analyzer=analizador)
+        vocal_jobs.run_vocal_analysis(track_obj.id, analyzer=analizador)
 
-        pista.refresh_from_db()
-        self.assertEqual((pista.vocal_status, pista.vocal_last_end, pista.vocal_first_start), ('failed', None, None))
+        track_obj.refresh_from_db()
+        self.assertEqual((track_obj.vocal_status, track_obj.vocal_last_end, track_obj.vocal_first_start), ('failed', None, None))
 
     def test_sin_voz_al_final_queda_analizada_con_el_final_vacio(self):
-        pista = crear_pista(vocal_last_end=150.0)
+        track_obj = crear_pista(vocal_last_end=150.0)
 
-        vocal_jobs.run_vocal_analysis(pista.id, analyzer=lambda *args: VocalResult(140.0, None))
+        vocal_jobs.run_vocal_analysis(track_obj.id, analyzer=lambda *args: VocalResult(140.0, None))
 
-        pista.refresh_from_db()
-        self.assertEqual((pista.vocal_status, pista.vocal_last_end), ('done', None))
+        track_obj.refresh_from_db()
+        self.assertEqual((track_obj.vocal_status, track_obj.vocal_last_end), ('done', None))
 
     def test_mientras_analiza_la_pista_figura_como_analizando(self):
-        pista = crear_pista()
+        track_obj = crear_pista()
         estados = []
 
         def analizador(*args):
-            estados.append(Track.objects.get(pk=pista.id).vocal_status)
+            estados.append(Track.objects.get(pk=track_obj.id).vocal_status)
             return VocalResult(140.0, 180.0)
 
-        vocal_jobs.run_vocal_analysis(pista.id, analyzer=analizador)
+        vocal_jobs.run_vocal_analysis(track_obj.id, analyzer=analizador)
 
         self.assertEqual(estados, ['running'])
 
     def test_si_el_modelo_no_esta_instalado_la_pista_queda_como_no_disponible(self):
-        pista = crear_pista()
+        track_obj = crear_pista()
 
-        vocal_jobs.run_vocal_analysis(pista.id, analyzer=mock.Mock(side_effect=VocalSeparationUnavailable('x')))
+        vocal_jobs.run_vocal_analysis(track_obj.id, analyzer=mock.Mock(side_effect=VocalSeparationUnavailable('x')))
 
-        pista.refresh_from_db()
-        self.assertEqual(pista.vocal_status, 'unavailable')
+        track_obj.refresh_from_db()
+        self.assertEqual(track_obj.vocal_status, 'unavailable')
 
     def test_si_el_analisis_falla_queda_como_fallido_sin_romper_nada(self):
-        pista = crear_pista()
+        track_obj = crear_pista()
 
-        vocal_jobs.run_vocal_analysis(pista.id, analyzer=mock.Mock(side_effect=RuntimeError('memoria')))
+        vocal_jobs.run_vocal_analysis(track_obj.id, analyzer=mock.Mock(side_effect=RuntimeError('memoria')))
 
-        pista.refresh_from_db()
-        self.assertEqual(pista.vocal_status, 'failed')
+        track_obj.refresh_from_db()
+        self.assertEqual(track_obj.vocal_status, 'failed')
 
     def test_una_pista_sin_audio_guardado_falla(self):
-        pista = crear_pista(con_audio=False)
+        track_obj = crear_pista(con_audio=False)
         analizador = mock.Mock()
 
-        vocal_jobs.run_vocal_analysis(pista.id, analyzer=analizador)
+        vocal_jobs.run_vocal_analysis(track_obj.id, analyzer=analizador)
 
-        pista.refresh_from_db()
-        self.assertEqual(pista.vocal_status, 'failed')
+        track_obj.refresh_from_db()
+        self.assertEqual(track_obj.vocal_status, 'failed')
         analizador.assert_not_called()
 
     def test_una_pista_borrada_se_ignora(self):
@@ -157,64 +157,64 @@ class RunVocalAnalysisTests(TempMediaMixin, TestCase):
 @override_settings(VOCAL_ANALYSIS='auto')
 class RequestVocalAnalysisTests(TempMediaMixin, TestCase):
     def test_con_el_modelo_disponible_la_pista_pasa_a_la_cola(self):
-        pista = crear_pista()
+        track_obj = crear_pista()
 
         with mock.patch.object(vocal_jobs, 'is_available', return_value=True), \
                 mock.patch.object(vocal_jobs, '_submit') as enviar:
-            estado = vocal_jobs.request_vocal_analysis(pista)
+            estado = vocal_jobs.request_vocal_analysis(track_obj)
 
-        pista.refresh_from_db()
-        self.assertEqual((estado, pista.vocal_status), ('pending', 'pending'))
-        enviar.assert_called_once_with(pista.id)
+        track_obj.refresh_from_db()
+        self.assertEqual((estado, track_obj.vocal_status), ('pending', 'pending'))
+        enviar.assert_called_once_with(track_obj.id)
 
     def test_sin_el_modelo_la_pista_queda_como_no_disponible_y_no_se_encola(self):
-        pista = crear_pista()
+        track_obj = crear_pista()
 
         with mock.patch.object(vocal_jobs, 'is_available', return_value=False), \
                 mock.patch.object(vocal_jobs, '_submit') as enviar:
-            estado = vocal_jobs.request_vocal_analysis(pista)
+            estado = vocal_jobs.request_vocal_analysis(track_obj)
 
-        pista.refresh_from_db()
-        self.assertEqual((estado, pista.vocal_status), ('unavailable', 'unavailable'))
+        track_obj.refresh_from_db()
+        self.assertEqual((estado, track_obj.vocal_status), ('unavailable', 'unavailable'))
         enviar.assert_not_called()
 
     @override_settings(VOCAL_ANALYSIS='off')
     def test_desactivado_por_configuracion_no_toca_la_pista(self):
-        pista = crear_pista()
+        track_obj = crear_pista()
 
         with mock.patch.object(vocal_jobs, '_submit') as enviar:
-            estado = vocal_jobs.request_vocal_analysis(pista)
+            estado = vocal_jobs.request_vocal_analysis(track_obj)
 
-        pista.refresh_from_db()
-        self.assertEqual((estado, pista.vocal_status), ('none', 'none'))
+        track_obj.refresh_from_db()
+        self.assertEqual((estado, track_obj.vocal_status), ('none', 'none'))
         enviar.assert_not_called()
 
     def test_una_pista_ya_en_cola_o_analizando_no_se_encola_otra_vez(self):
         for estado in ('pending', 'running'):
-            pista = crear_pista(vocal_status=estado)
+            track_obj = crear_pista(vocal_status=estado)
             with mock.patch.object(vocal_jobs, 'is_available', return_value=True), \
                     mock.patch.object(vocal_jobs, '_submit') as enviar, \
-                    mock.patch.object(vocal_jobs, '_active', {pista.id}):
-                self.assertEqual(vocal_jobs.request_vocal_analysis(pista), estado)
+                    mock.patch.object(vocal_jobs, '_active', {track_obj.id}):
+                self.assertEqual(vocal_jobs.request_vocal_analysis(track_obj), estado)
             enviar.assert_not_called()
 
     def test_una_pista_que_figura_en_cola_pero_nadie_esta_analizando_se_vuelve_a_encolar(self):
         # Quedo asi tras un fallo del servidor: el estado dice "analizando" pero no hay ningun trabajo vivo.
-        pista = crear_pista(vocal_status='running')
+        track_obj = crear_pista(vocal_status='running')
 
         with mock.patch.object(vocal_jobs, 'is_available', return_value=True), \
                 mock.patch.object(vocal_jobs, '_submit') as enviar:
-            estado = vocal_jobs.request_vocal_analysis(pista)
+            estado = vocal_jobs.request_vocal_analysis(track_obj)
 
         self.assertEqual(estado, 'pending')
-        enviar.assert_called_once_with(pista.id)
+        enviar.assert_called_once_with(track_obj.id)
 
     def test_una_pista_sin_audio_no_se_encola(self):
-        pista = crear_pista(con_audio=False)
+        track_obj = crear_pista(con_audio=False)
 
         with mock.patch.object(vocal_jobs, 'is_available', return_value=True), \
                 mock.patch.object(vocal_jobs, '_submit') as enviar:
-            vocal_jobs.request_vocal_analysis(pista)
+            vocal_jobs.request_vocal_analysis(track_obj)
 
         enviar.assert_not_called()
 

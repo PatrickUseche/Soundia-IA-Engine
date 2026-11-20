@@ -36,9 +36,9 @@ def reset_timing() -> int:
     return deleted
 
 
-def record_mix_timing(origin: Track, destination: Track, planned: float, actual: float) -> float:
+def record_mix_timing(origin: Track, destination: Track, planned: float, current_value: float) -> float:
     """Guarda el caso y devuelve el adelanto vigente con el."""
     MixTimingFeedback.objects.create(
-        from_track=origin, to_track=destination, planned_mix_out=planned, actual_mix_out=actual,
+        from_track=origin, to_track=destination, planned_mix_out=planned, actual_mix_out=current_value,
     )
     return learned_advance()

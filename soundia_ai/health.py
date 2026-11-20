@@ -24,5 +24,5 @@ def health(request):
     except DatabaseError:
         logger.exception('La comprobacion de salud no pudo consultar la base de datos')
         return JsonResponse({'status': 'error', 'database': 'error'}, status=503)
-    milisegundos = round((time.monotonic() - inicio) * 1000)
-    return JsonResponse({'status': 'ok', 'database': 'ok', 'database_ms': milisegundos})
+    milliseconds = round((time.monotonic() - inicio) * 1000)
+    return JsonResponse({'status': 'ok', 'database': 'ok', 'database_ms': milliseconds})

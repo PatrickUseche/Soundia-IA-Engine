@@ -142,10 +142,10 @@ class DownbeatFromChoiceTests(SimpleTestCase):
     def test_el_resultado_siempre_cae_en_la_rejilla_y_dentro_del_primer_compas(self):
         periodo, compas = 60.0 / self.BPM, 4 * 60.0 / self.BPM
         for decimas in range(0, 6000, 7):
-            resultado = downbeat_from_choice(self.OFFSET, self.BPM, decimas / 100)
-            self.assertGreaterEqual(resultado, -EARLY_BEAT_TOLERANCE_SECONDS - 1e-9)
-            self.assertLess(resultado, compas - EARLY_BEAT_TOLERANCE_SECONDS + 1e-9)
-            pulsos = (resultado - self.OFFSET) / periodo
+            outcome = downbeat_from_choice(self.OFFSET, self.BPM, decimas / 100)
+            self.assertGreaterEqual(outcome, -EARLY_BEAT_TOLERANCE_SECONDS - 1e-9)
+            self.assertLess(outcome, compas - EARLY_BEAT_TOLERANCE_SECONDS + 1e-9)
+            pulsos = (outcome - self.OFFSET) / periodo
             self.assertAlmostEqual(pulsos, round(pulsos), places=3)
 
     def test_no_cambia_la_fase_de_los_pulsos(self):

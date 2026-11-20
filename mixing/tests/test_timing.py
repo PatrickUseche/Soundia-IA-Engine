@@ -45,9 +45,9 @@ class TimingStorageTests(TestCase):
         self.assertEqual(timing_count(), 0)
 
     def test_registrar_guarda_el_caso_y_devuelve_el_adelanto_vigente(self):
-        self.assertEqual(record_mix_timing(self.a, self.b, planned=270.0, actual=250.0), 0.0)
-        self.assertEqual(record_mix_timing(self.a, self.b, planned=270.0, actual=240.0), 0.0)
-        self.assertEqual(record_mix_timing(self.a, self.b, planned=270.0, actual=230.0), 30.0)
+        self.assertEqual(record_mix_timing(self.a, self.b, planned=270.0, current_value=250.0), 0.0)
+        self.assertEqual(record_mix_timing(self.a, self.b, planned=270.0, current_value=240.0), 0.0)
+        self.assertEqual(record_mix_timing(self.a, self.b, planned=270.0, current_value=230.0), 30.0)
 
         self.assertEqual(timing_count(), 3)
         self.assertEqual(MixTimingFeedback.objects.count(), 3)
@@ -55,9 +55,9 @@ class TimingStorageTests(TestCase):
 
     def test_solo_cuentan_los_casos_mas_recientes(self):
         for _ in range(30):
-            record_mix_timing(self.a, self.b, planned=270.0, actual=260.0)
+            record_mix_timing(self.a, self.b, planned=270.0, current_value=260.0)
         for _ in range(20):
-            record_mix_timing(self.a, self.b, planned=270.0, actual=200.0)
+            record_mix_timing(self.a, self.b, planned=270.0, current_value=200.0)
 
         self.assertEqual(learned_advance(), 70.0)
 
@@ -96,12 +96,12 @@ class ResetTimingTests(TestCase):
 
     def test_olvida_lo_aprendido_y_devuelve_cuantos_casos_borro(self):
         for _ in range(MIN_TIMING_SAMPLES):
-            record_mix_timing(self.a, self.b, planned=120.0, actual=100.0)
+            record_mix_timing(self.a, self.b, planned=120.0, current_value=100.0)
         self.assertGreater(learned_advance(), 0)
 
-        borrados = reset_timing()
+        deleted_items = reset_timing()
 
-        self.assertEqual(borrados, MIN_TIMING_SAMPLES)
+        self.assertEqual(deleted_items, MIN_TIMING_SAMPLES)
         self.assertEqual(timing_count(), 0)
         self.assertEqual(learned_advance(), 0.0)
 

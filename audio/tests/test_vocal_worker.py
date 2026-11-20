@@ -10,15 +10,15 @@ from audio.vocal_analysis import VocalResult
 
 
 class VocalWorkerTests(SimpleTestCase):
-    def ejecutar(self, resultado=None, error=None):
+    def ejecutar(self, outcome=None, error=None):
         salida = StringIO()
-        with mock.patch.object(vocal_worker, 'analyze_vocals', return_value=resultado, side_effect=error), \
+        with mock.patch.object(vocal_worker, 'analyze_vocals', return_value=outcome, side_effect=error), \
                 mock.patch.object(vocal_worker.sys, 'stdout', salida):
             codigo = vocal_worker.main(['vocal_worker', '/audio/tema.mp3', '200.0'])
         return codigo, salida.getvalue()
 
     def test_imprime_el_resultado_como_json_y_sale_bien(self):
-        codigo, salida = self.ejecutar(resultado=VocalResult(window_start=140.0, last_end=188.5, first_start=12.0))
+        codigo, salida = self.ejecutar(outcome=VocalResult(window_start=140.0, last_end=188.5, first_start=12.0))
 
         self.assertEqual(codigo, 0)
         self.assertEqual(
@@ -26,16 +26,16 @@ class VocalWorkerTests(SimpleTestCase):
             {'window_start': 140.0, 'last_end': 188.5, 'first_start': 12.0})
 
     def test_sin_analisis_del_inicio_imprime_first_start_vacio(self):
-        _, salida = self.ejecutar(resultado=VocalResult(window_start=140.0, last_end=188.5))
+        _, salida = self.ejecutar(outcome=VocalResult(window_start=140.0, last_end=188.5))
 
         self.assertIsNone(json.loads(salida.strip().splitlines()[-1])['first_start'])
 
     def test_pasa_la_ruta_y_la_duracion_al_analisis(self):
-        with mock.patch.object(vocal_worker, 'analyze_vocals', return_value=VocalResult(0.0, None)) as analisis, \
+        with mock.patch.object(vocal_worker, 'analyze_vocals', return_value=VocalResult(0.0, None)) as analysis_result, \
                 mock.patch.object(vocal_worker.sys, 'stdout', StringIO()):
             vocal_worker.main(['vocal_worker', '/audio/tema.mp3', '200.0'])
 
-        analisis.assert_called_once_with('/audio/tema.mp3', 200.0)
+        analysis_result.assert_called_once_with('/audio/tema.mp3', 200.0)
 
     def test_sin_el_modelo_instalado_sale_con_el_codigo_de_no_disponible(self):
         codigo, _ = self.ejecutar(error=VocalSeparationUnavailable('x'))
