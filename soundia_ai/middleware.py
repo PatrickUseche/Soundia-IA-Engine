@@ -10,6 +10,8 @@ from django.conf import settings
 from django.http import JsonResponse
 
 HEADER = 'HTTP_X_SOUNDIA_KEY'
+# Rutas publicas: las consultan el comprobador de salud y el que mantiene despierto el servicio, sin la clave.
+PUBLIC_PATHS = frozenset({'/health/'})
 
 
 class ServiceTokenMiddleware:
@@ -19,7 +21,7 @@ class ServiceTokenMiddleware:
     def __call__(self, request):
         token = settings.SERVICE_TOKEN
         # Sin SERVICE_TOKEN el motor responde a todos (red privada o desarrollo).
-        if token:
+        if token and request.path not in PUBLIC_PATHS:
             enviada = request.META.get(HEADER, '')
             if not hmac.compare_digest(enviada.encode(), token.encode()):
                 return JsonResponse({'error': 'Clave de servicio invalida o ausente.'}, status=401)
