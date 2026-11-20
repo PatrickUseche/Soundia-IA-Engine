@@ -196,3 +196,20 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+# Registro de errores en la consola (el log de Render). Con DEBUG=False Django no imprime la traza de un error 500: solo
+# la manda por correo a ADMINS, que aqui no hay, y el log mostraba `POST ... 500` sin motivo. Aqui los errores de las
+# peticiones se escriben siempre, con su traza.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'simple', 'level': 'INFO'},
+    },
+    'loggers': {
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+    },
+}
