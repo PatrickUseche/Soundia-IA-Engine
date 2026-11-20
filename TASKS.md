@@ -58,8 +58,10 @@ Al terminarla se marca `[x]` en ese mismo commit.
 
 Encontrado al probar el sistema completo en un navegador real (2026-10-22); nada de esto se ha hecho todavía.
 
-- [x] chore(deploy): con `DJANGO_DEBUG=False` hacen falta `DJANGO_SECRET_KEY` y `DJANGO_ALLOWED_HOSTS` con los nombres reales; no publicar el puerto 8000 (este servicio no tiene autenticación y solo debe verlo el API Gateway) [7.1] (resuelto en el `docker-compose.prod.yml` del API: sin puertos publicados y `VOCAL_ANALYSIS=off`)
-- [x] chore(deploy): decidir si el análisis de voz (Demucs, ~800 MB de RAM por análisis) se ejecuta en el servidor o se apaga con `VOCAL_ANALYSIS=off`; en un equipo con 4 GB satura la memoria [7.2] (resuelto en el `docker-compose.prod.yml` del API: sin puertos publicados y `VOCAL_ANALYSIS=off`)
+- [x] chore(deploy): con `DJANGO_DEBUG=False` hacen falta `DJANGO_SECRET_KEY` y `DJANGO_ALLOWED_HOSTS` con los nombres reales; no publicar el puerto 8000 (este servicio no tiene autenticación y solo debe verlo el API Gateway) [7.1]
+ (resuelto en el `docker-compose.prod.yml` del API: sin puertos publicados y `VOCAL_ANALYSIS=off`)
+- [x] chore(deploy): decidir si el análisis de voz (Demucs, ~800 MB de RAM por análisis) se ejecuta en el servidor o se apaga con `VOCAL_ANALYSIS=off`; en un equipo con 4 GB satura la memoria [7.2]
+ (resuelto en el `docker-compose.prod.yml` del API: sin puertos publicados y `VOCAL_ANALYSIS=off`)
 
 ## Fase 8 — Aprender el estilo de un DJ profesional (en curso)
 
@@ -105,3 +107,4 @@ Acordado con el usuario (2026-10-24): el DJ usa la versión de la nube, por sesi
 - [ ] feat(mix): reglas de mezcla por género en una tabla, con los valores actuales como respaldo y contrastadas con `recordings_report` [11.3]
 - [ ] docs(ml): conjunto de música libre (Free Music Archive filtrado por licencia de uso comercial) con la lista de pistas y licencias para demo y pruebas [11.4]
 - [ ] chore(ml): sesiones de recogida de datos del DJ: 20 a 30 mezclas buenas por género y 15 a 20 correcciones, con copia de seguridad tras cada sesión [11.5]
+- [x] fix(audio): el primer ataque se busca con la envolvente de ataques calculada por tramos y no con una STFT de la pista entera: en una pista de 8 min sin ritmo claro el pico de memoria bajaba de 798 a 323 MB (con 512 MB de RAM en Render el motor se quedaba sin memoria con una sola canción); resultado idéntico en 48 de 49 pistas y la otra a 0,02 s [11.8]

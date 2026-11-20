@@ -191,11 +191,17 @@ MIN_CUE_GAP_BARS = 8
 
 
 def _first_onset_time(y: np.ndarray, sr: int) -> float:
-    """Instante del primer ataque musical. Se rellena un poco de silencio al inicio porque librosa no
-    detecta un pulso que cae justo en el primer cuadro de la senal."""
+    """Instante del primer ataque musical (0 si no hay ninguno). Se rellena un poco de silencio al inicio porque librosa
+    no detecta un pulso que cae justo en el primer cuadro de la senal.
+
+    La envolvente de ataques se calcula por tramos (memoria acotada) y `onset_detect` trabaja sobre ella. Pasarle la
+    senal entera hacia una STFT completa que sumaba ~480 MB de pico en una pista de 8 minutos sin ritmo claro y mataba al
+    motor en los 512 MB de Render con una sola cancion. El resultado es el mismo: la envolvente es la misma y se
+    normaliza contra toda la pista (una intro muy suave no cuenta como primer ataque, igual que antes).
+    """
     padding = 2048
-    padded = np.concatenate([np.zeros(padding), y])
-    onsets = librosa.onset.onset_detect(y=padded, sr=sr, units='time')
+    envelope = _onset_envelope(np.concatenate([np.zeros(padding, dtype=y.dtype), y]), sr)
+    onsets = librosa.onset.onset_detect(onset_envelope=envelope, sr=sr, hop_length=ANALYSIS_HOP, units='time')
     if len(onsets) == 0:
         return 0.0
     return max(float(onsets[0]) - padding / sr, 0.0)
