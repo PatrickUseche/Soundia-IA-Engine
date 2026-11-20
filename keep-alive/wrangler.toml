@@ -1,0 +1,7 @@
+name = "soundia-keep-alive"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# Cada 5 minutos: Render duerme los servicios gratuitos a los 15 minutos sin trafico.
+[triggers]
+crons = ["*/5 * * * *"]

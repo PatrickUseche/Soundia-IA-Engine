@@ -1,9 +1,8 @@
 name: Mantener despiertos los servicios
 
-# El plan gratuito de Render duerme cada servicio tras 15 minutos sin trafico y despertarlo tarda de 40 s a 2 min.
-# Esta tarea los consulta cada 10 minutos. Tambien toca la base de datos (via /health/), que asi no se queda dormida.
-# GitHub puede retrasar las tareas programadas unos minutos y las desactiva tras 60 dias sin actividad en el repositorio
-# (si pasa, se reactiva desde la pestana Actions). Se puede lanzar a mano con "Run workflow", por ejemplo antes de la demo.
+# AVISO: GitHub no garantiza las tareas programadas y en la practica este cron no llego a ejecutarse (0 ejecuciones en
+# 4 horas). El mecanismo fiable es el Worker de Cloudflare de la carpeta keep-alive/ (cada 5 min). Este workflow queda
+# para lanzarlo a mano con "Run workflow" (por ejemplo, antes de la demo) y como respaldo si GitHub si lo ejecuta.
 on:
   schedule:
     - cron: '*/10 * * * *'
