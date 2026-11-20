@@ -72,7 +72,7 @@ se comprobó que el tempo anotado sí está en el audio (autocorrelación de los
 sin relación simple y 19 con referencia por debajo de 70 BPM (el motor las da al doble). Pendiente: confirmar a oído unas
 pistas y repetir con las 49 pistas del DJ [11.7].
 
-Los datos del conjunto (CC BY 4.0, <https://zenodo.org/records/13120822>) están en `C:\SoundIA-datosalidacion\salsa` y no
+Los datos del conjunto (CC BY 4.0, <https://zenodo.org/records/13120822>) están en `C:/SoundIA-datos/validacion/salsa` y no
 van a git. Cita: Gómez-Marín, D., Ospina-Caicedo, R., Díaz-Cely, J., Paz, J., Jordà, S. y Herrera, P. (2024). *Salsa, a
 Dataset for Beat Estimation in Salsa Music*. TISMIR 7(1), 264-273. DOI 10.5334/tismir.183.
 
