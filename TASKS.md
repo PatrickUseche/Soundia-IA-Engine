@@ -101,7 +101,7 @@ Acordado con el usuario (2026-10-24): el DJ usa la versión de la nube, por sesi
 ## Fase 11 — Mejorar y entrenar la IA con datos propios y externos (plan en `docs/PLAN-MEJORA-IA.md`)
 
 - [x] docs(ml): plan para mejorar y entrenar la IA, con la comparación de conjuntos de datos y estudios de DJs [11.1]
-- [ ] feat(audio): `manage.py validate_beats` para medir el tempo y los tiempos del motor contra pistas anotadas (conjunto Salsa y pistas del DJ); antes hay que pedir acceso y confirmar términos del conjunto [11.2]
+- [x] feat(audio): `manage.py validate_beats` mide el BPM (exacto al 4 % y con errores de octava) y el primer tiempo del compás contra pistas con valores conocidos, por género; con `--template` crea el CSV para rellenar, `--json` guarda el detalle y `--min-accuracy` falla si no se alcanza el acierto [11.2]. Falta medirlo con referencias reales (BPM anotados por el DJ y el conjunto Salsa, cuyo acceso hay que pedir) y la medida por pulso, que depende del formato de ese conjunto
 - [ ] feat(mix): reglas de mezcla por género en una tabla, con los valores actuales como respaldo y contrastadas con `recordings_report` [11.3]
 - [ ] docs(ml): conjunto de música libre (Free Music Archive filtrado por licencia de uso comercial) con la lista de pistas y licencias para demo y pruebas [11.4]
 - [ ] chore(ml): sesiones de recogida de datos del DJ: 20 a 30 mezclas buenas por género y 15 a 20 correcciones, con copia de seguridad tras cada sesión [11.5]

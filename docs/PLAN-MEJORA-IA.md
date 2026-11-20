@@ -44,6 +44,20 @@ Hoy el análisis solo se probó con audio sintético ([6.6] en `TASKS.md`).
 4. **Criterio de éxito:** una cifra por género, anotada en este documento. Si el tempo acierta menos del 90 %, se arregla
    el análisis antes de entrenar nada.
 
+**Cómo se usa lo ya hecho [11.2]:**
+
+```powershell
+# 1. Plantilla con los audios de una carpeta (no pisa archivos que ya existan)
+python manage.py validate_beats "C:\Users\PATRICK\Music\Musica" --template --out "C:\Users\PATRICK\Music\Musica\referencia-bpm.csv"
+# 2. Rellenar en el CSV la columna bpm (y genre; downbeat si se conoce el segundo del primer tiempo)
+# 3. Medir
+python manage.py validate_beats "C:\Users\PATRICK\Music\Musica\referencia-bpm.csv" --json resultado.json --min-accuracy 0.9
+```
+
+La tabla final da, por género: pistas, acierto exacto (4 %), acierto aceptando doble, mitad, triple o tercio, mediana del
+error en % y errores de lectura. Con `downbeat` en el CSV añade el acierto del primer tiempo del compás y del pulso.
+Sirve para anotar la cifra por género que pide el criterio de éxito.
+
 ### B. Reglas de arranque mejores (sin entrenar)
 
 El modelo parte de las reglas y se desplaza hacia el DJ. Mientras el DJ tiene menos de 20 mezclas buenas, **las reglas son
