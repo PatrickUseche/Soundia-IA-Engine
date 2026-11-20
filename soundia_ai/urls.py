@@ -17,7 +17,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+from .health import health
+
 urlpatterns = [
+    path('health/', health, name='health'),
     path('admin/', admin.site.urls),
     path('api/audio/', include('audio.urls')),
     path('api/mix/', include('mixing.urls')),

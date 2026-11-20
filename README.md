@@ -46,6 +46,12 @@ Variables de entorno (ver `.env.example`; Django no lee `.env` por sí solo):
 
 ## Endpoints
 
+### Salud
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/health/` | Pública (no pide `X-Soundia-Key`). Hace una consulta mínima a la base de datos y responde `200 {status, database, database_ms}`, o `503` si la base de datos falla (sin detalle del error). Lo consulta `.github/workflows/keep-alive.yml` cada 10 min para que Render no duerma el servicio (el plan gratuito lo duerme a los 15 min y despertarlo tarda 40 s o más). |
+
 ### Mezcla (`telemetry`)
 
 | Método | Ruta | Descripción |
